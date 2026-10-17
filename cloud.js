@@ -126,3 +126,29 @@ export async function accessLog(uid) {
   const { data, error } = await sb.from('admin_access_log').select('reason, at').eq('target_id', uid).order('at', { ascending: false }).limit(20);
   return error ? [] : data || [];
 }
+
+// ---------------------------------------------------------------- enlace del cliente (ver su dieta sin cuenta)
+const randomToken = () => {
+  const b = crypto.getRandomValues(new Uint8Array(32));
+  return btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+};
+export async function portalLink(uid, clientId) {
+  const { data, error } = await sb.from('portal_links').select('token, last_viewed_at').eq('owner', uid).eq('client_id', clientId).maybeSingle();
+  if (error) throw new Error('No se pudo consultar el enlace');
+  return data;
+}
+export async function createPortalLink(uid, clientId) {
+  const token = randomToken();
+  const { error } = await sb.from('portal_links').insert({ token, owner: uid, client_id: clientId });
+  if (error) throw new Error(error.code === '42501' ? 'Necesitas una suscripción activa para compartir enlaces' : 'No se pudo crear el enlace');
+  return token;
+}
+export async function revokePortalLink(uid, clientId) {
+  const { error } = await sb.from('portal_links').delete().eq('owner', uid).eq('client_id', clientId);
+  if (error) throw new Error('No se pudo anular el enlace');
+}
+export async function portalView(token) {
+  const { data, error } = await sb.rpc('portal_view', { p_token: token });
+  if (error) throw new Error(/no es válido|no está disponible/.test(error.message) ? error.message : 'No se pudo cargar tu plan. Revisa tu conexión.');
+  return data;
+}

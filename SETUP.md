@@ -28,8 +28,10 @@ Hazlo primero en **modo de prueba de Stripe** (sin cobros reales) y, cuando todo
 
 ## 1 bis. Tu cuenta de administrador (gratis)
 
-1. En **SQL Editor** ejecuta también
-   [`supabase/migrations/20261018000000_admin.sql`](supabase/migrations/20261018000000_admin.sql).
+1. En **SQL Editor** ejecuta también, en este orden,
+   [`supabase/migrations/20261018000000_admin.sql`](supabase/migrations/20261018000000_admin.sql) y
+   [`supabase/migrations/20261019000000_portal.sql`](supabase/migrations/20261019000000_portal.sql)
+   (este último activa los enlaces para que los clientes vean su dieta).
 2. Cuando la app esté publicada (paso 5), **regístrate en ella con tu email** como cualquier usuario.
 3. En **SQL Editor** ejecuta, con tu email:
 
@@ -116,6 +118,14 @@ Antes de abrirla al público, consulta con un asesor o abogado y prepara al meno
   (se borran también su perfil, sus datos y, desde Storage, sus fotos en `photos/<id>`).
 
 ## Cómo funciona
+
+- **Acceso desde cualquier dispositivo**: tú y cada nutricionista entráis con email y contraseña en el móvil, la
+  tablet o el PC (navegador o app instalada) y veis los mismos datos.
+- **Enlace del cliente**: en la ficha de cada cliente, «Crear enlace» genera una dirección privada (imposible de
+  adivinar) que se envía por WhatsApp. El cliente ve su dieta activa, su progreso de peso y su próxima revisión,
+  sin registrarse y sin poder modificar nada; nunca ve notas privadas, fotos ni otros clientes. El nutricionista
+  ve cuándo lo abrió por última vez y puede anularlo cuando quiera. Si el nutricionista no tiene la suscripción al
+  día, el enlace se pausa.
 
 - **Prueba gratis**: al registrarse, la base de datos da 14 días de acceso (`trial_ends_at`).
 - **Acceso**: suscripción activa, o 7 días de margen si falla un cobro mientras Stripe reintenta, o prueba vigente.

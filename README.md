@@ -18,6 +18,8 @@ App web instalable (PWA) para nutricionistas, **by Javier Carbonell**.
 - **App de pago para nutricionistas** (opcional): cuentas con email, 14 días de prueba y suscripción mensual con Stripe
   (tarjeta, Apple Pay, Google Pay o PayPal). Cada nutricionista guarda sus clientes, mediciones, fotos y dietas en la
   nube (Supabase, en la UE), separados del resto y en todos sus dispositivos. Puesta en marcha: [SETUP.md](SETUP.md).
+- **Enlace para el cliente**: cada cliente puede ver su dieta, su progreso y su próxima revisión desde el móvil con un
+  enlace privado que le envía su nutricionista (sin registrarse, solo lectura, se puede anular).
 - Sin configurar la nube funciona en un solo dispositivo, con sincronización opcional por gist de GitHub y copia por archivo.
 - Funciona sin conexión (salvo la IA y la sincronización). Tema claro, oscuro o automático.
 - Diseño: tipografía Plus Jakarta Sans (licencia OFL, en `vendor/fonts`), icono propio (matraz con hoja), modo claro y oscuro.

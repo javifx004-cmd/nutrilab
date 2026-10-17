@@ -14,6 +14,7 @@
   let gate = CLOUD ? 'loading' : null; // pantalla previa a la app: loading | auth | paywall | newpass
   let recovering = false;    // abierta desde el enlace de «recuperar contraseña»
   let viewing = null;        // administrador viendo los datos de otro nutricionista (solo lectura)
+  let portal = null;         // cliente viendo su dieta con su enlace: { token, data, day, error }
   const AI_KEY = 'javinutricion-ai';
   const LISTS = ['clients', 'measures', 'plans', 'foods'];
   const ACTIVITY = [
@@ -209,9 +210,14 @@
     return { view: 'home' };
   }
   const go = (hash) => { if (location.hash === hash) render(); else location.hash = hash; };
-  window.addEventListener('hashchange', () => { closeSheet(); render(); window.scrollTo(0, 0); });
+  window.addEventListener('hashchange', () => {
+    const pm = CLOUD && location.hash.match(/^#\/p\/([\w-]{32,})/);
+    if (pm) return openPortal(pm[1]);
+    closeSheet(); render(); window.scrollTo(0, 0);
+  });
 
   function render() {
+    if (portal) return renderPortal();
     if (gate) return renderGate();
     document.body.classList.remove('gated');
     const r = route();
@@ -380,7 +386,85 @@
         <div class="stat" data-act="review" data-id="${c.id}" style="cursor:pointer"><div class="l">Próxima revisión</div><div class="v">${c.nextReview ? esc(relDay(c.nextReview)) : '—'}</div><div class="s">${c.nextReview ? esc(fmtDate(c.nextReview, true)) : 'toca para programar'}</div></div>
         <div class="stat" ${active ? `data-nav="#/d/${active.id}" style="cursor:pointer"` : ''}><div class="l">Dieta ${active?.active ? 'activa' : 'más reciente'}</div><div class="v" style="font-size:15px">${active ? esc(active.name) : '—'}</div><div class="s">${active ? fmt(planAvg(active).kcal, 0) + ' kcal/día' : 'sin dietas'}</div></div>
       </div>
-      ${c.allergies ? `<div class="note warn"><b>Alergias / intolerancias:</b> ${esc(c.allergies)}</div>` : ''}`;
+      ${c.allergies ? `<div class="note warn"><b>Alergias / intolerancias:</b> ${esc(c.allergies)}</div>` : ''}
+      ${CLOUD && acct && !viewing ? `<div class="card" id="portalCard" data-client="${esc(c.id)}"><div class="card-head"><h3>Acceso del cliente</h3></div><p class="small muted" style="margin:0">Cargando…</p></div>` : ''}`;
+  }
+
+  // ---------------------------------------------------------------- enlace del cliente (lado del nutricionista)
+  const portalUrl = (token) => `${location.origin}${location.pathname}#/p/${token}`;
+  async function fillPortalCard() {
+    const el = $('#portalCard'); if (!el) return;
+    const c = clientById(el.dataset.client); if (!c) return;
+    let link = null;
+    try { link = await cloud.portalLink(acct.user.id, c.id); } catch (err) { el.querySelector('p').textContent = err.message; return; }
+    if (!$('#portalCard')) return;
+    const phone = (c.phone || '').replace(/[^\d]/g, '').replace(/^(?=[67]\d{8}$)/, '34');
+    const first = c.name.split(' ')[0];
+    const msg = (u) => encodeURIComponent(`Hola ${first} 👋 Aquí tienes tu plan de NutriLab: ${u}\nGuárdalo en la pantalla de inicio del móvil para tenerlo siempre a mano.`);
+    el.innerHTML = link ? `<div class="card-head"><h3>Acceso del cliente</h3><span class="pill green">Activo</span></div>
+        <p class="small muted" style="margin:0 0 10px">${esc(first)} ve su dieta, su progreso y su próxima revisión con este enlace privado, sin registrarse.${link.last_viewed_at ? ` Última visita: ${esc(new Date(link.last_viewed_at).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }))}.` : ' Aún no lo ha abierto.'}</p>
+        <div class="row">${phone ? `<a class="btn primary grow" href="https://wa.me/${phone}?text=${msg(portalUrl(link.token))}" target="_blank" rel="noopener">${ICON.wa}Enviar por WhatsApp</a>` : ''}
+          <button class="btn grow" data-act="portal-copy" data-token="${esc(link.token)}">${ICON.copy}Copiar enlace</button>
+          <button class="btn danger" data-act="portal-revoke" data-id="${esc(c.id)}">Anular</button></div>`
+      : `<div class="card-head"><h3>Acceso del cliente</h3><span class="pill mute">Sin enlace</span></div>
+        <p class="small muted" style="margin:0 0 10px">Crea un enlace privado para que ${esc(first)} vea su dieta y su progreso desde el móvil, sin registrarse. Puedes anularlo cuando quieras.</p>
+        <button class="btn primary block" data-act="portal-create" data-id="${esc(c.id)}">Crear enlace para ${esc(first)}</button>`;
+  }
+
+  // ---------------------------------------------------------------- vista del cliente
+  const PORTAL_LAST = 'nutrilab-portal-last';
+  async function openPortal(token) {
+    portal = { token, data: null, day: 0, error: '' };
+    try { portal.data = JSON.parse(localStorage.getItem('nutrilab-portal:' + token) || 'null'); } catch { /* no-op */ }
+    render();
+    try {
+      if (!cloud) { cloud = await import('./cloud.js'); cloud.init(CFG); }
+      portal.data = await cloud.portalView(token);
+      portal.error = '';
+      try { localStorage.setItem('nutrilab-portal:' + token, JSON.stringify(portal.data)); localStorage.setItem(PORTAL_LAST, token); } catch { /* no-op */ }
+    } catch (err) {
+      portal.error = err.message;
+      if (/no es válido/.test(err.message)) { localStorage.removeItem('nutrilab-portal:' + token); localStorage.removeItem(PORTAL_LAST); portal.data = null; }
+    }
+    render();
+  }
+
+  function renderPortal() {
+    document.body.classList.add('gated');
+    $$('.fab').forEach((f) => f.remove());
+    const d = portal.data;
+    const head = `<section class="hero gate-hero"><div class="who"><img src="icons/icon.svg" alt="" width="50" height="50"><div><div class="brand">Nutri<span>Lab</span></div><div class="by">Tu plan de alimentación</div></div></div>
+      ${d ? `<div class="hello">Hola, <b>${esc((d.client.name || '').split(' ')[0])}</b> 👋${d.nutritionist?.name ? `<br><span style="opacity:.85;font-size:14px">Plan preparado por ${esc(d.nutritionist.name)}</span>` : ''}</div>` : ''}<span class="leaf">${ICON.leaf}</span></section>`;
+    if (!d) {
+      $('#view').innerHTML = head + (portal.error
+        ? `<div class="empty"><div class="art">${ICON.plate}</div><h3>No se puede abrir</h3><p>${esc(portal.error)}</p><button class="btn" data-act="portal-exit">Ir a NutriLab</button></div>`
+        : `<div class="ai-progress"><div class="spinner"></div><b>Cargando tu plan…</b></div>`);
+      return;
+    }
+    const plan = d.plan, ms = (d.measures || []).filter((m) => has(m.weight)).map((m) => ({ date: m.date, v: num(m.weight) }));
+    const last = ms[ms.length - 1], first = ms[0];
+    portal.day = Math.min(portal.day, (plan?.days?.length || 1) - 1);
+    const day = plan?.days?.[portal.day];
+    $('#view').innerHTML = head + `
+      ${portal.error ? `<div class="note warn">${esc(portal.error)} Mostramos la última versión guardada.</div>` : ''}
+      <div class="stats two">
+        <div class="stat"><div class="l">Próxima revisión</div><div class="v" style="font-size:17px">${d.client.nextReview ? esc(relDay(d.client.nextReview)) : '—'}</div><div class="s">${d.client.nextReview ? esc(fmtDate(d.client.nextReview, true)) : 'tu nutricionista te avisará'}</div></div>
+        <div class="stat"><div class="l">Tu peso</div><div class="v num">${last ? fmt(last.v) + ' kg' : '—'}</div><div class="s ${first && last && last.v !== first.v ? trendCls({ goal: d.client.goal }, last.v - first.v) : ''}">${first && last && ms.length > 1 ? `${last.v - first.v > 0 ? '+' : ''}${fmt(last.v - first.v)} kg desde el inicio` : ''}</div></div>
+      </div>
+      ${plan ? `
+        <div class="section-title"><span>${esc(plan.name)}</span><button class="btn sm" data-act="portal-print">${ICON.print}PDF</button></div>
+        ${plan.days.length > 1 ? `<div class="day-tabs">${plan.days.map((x, i) => `<button class="chip ${i === portal.day ? 'on' : ''}" data-pday="${i}">${esc(x.name)}</button>`).join('')}</div>` : ''}
+        ${plan.notes ? `<div class="note">${esc(plan.notes)}</div>` : ''}
+        ${(day?.meals || []).filter((m) => m.items.length).map((m) => `<section class="meal">
+          <div class="meal-head"><div class="name">${esc(m.name)}${m.time ? ` <span class="t">· ${esc(m.time)}</span>` : ''}</div><span class="k num">${fmt(mealMacros(m).kcal, 0)} kcal</span></div>
+          ${m.items.map((it) => `<div class="item"><div class="body"><div class="t">${esc(it.name)}</div>${it.household ? `<div class="s">${esc(it.household)}</div>` : ''}</div><b class="num">${fmt(num(it.grams), 0)} g</b></div>`).join('')}
+          ${m.recipe ? `<div class="recipe">${esc(m.recipe)}</div>` : ''}</section>`).join('')}
+        ${d.client.allergies ? `<p class="small muted">Tu plan tiene en cuenta: ${esc(d.client.allergies)}.</p>` : ''}`
+      : `<div class="empty"><div class="art">${ICON.plate}</div><h3>Tu plan está en preparación</h3><p>Tu nutricionista aún no ha publicado tu dieta. Vuelve a abrir este enlace más tarde.</p></div>`}
+      ${ms.length > 1 ? `<div class="card"><h3>Tu progreso</h3>${lineChart(ms, { target: num(d.client.targetWeight), unit: 'kg' })}</div>` : ''}
+      <div class="card"><h3>Tenlo siempre a mano</h3><p class="small muted" style="margin:0"><b>iPhone:</b> Safari → Compartir → «Añadir a pantalla de inicio».<br><b>Android:</b> Chrome → ⋮ → «Añadir a pantalla de inicio».</p>
+        ${d.nutritionist?.email ? `<a class="btn block" style="margin-top:12px" href="mailto:${esc(d.nutritionist.email)}">${ICON.mail}Escribir a ${esc((d.nutritionist.name || 'tu nutricionista').split(' ')[0])}</a>` : ''}</div>
+      <p class="small muted" style="text-align:center">NutriLab · by Javier Carbonell<br><a href="#" data-act="portal-exit">¿Eres nutricionista? Entra aquí</a></p>`;
   }
 
   // Gráfica de línea simple (SVG) con línea de objetivo opcional.
@@ -748,8 +832,8 @@
     return lines.join('\n');
   }
 
-  function printPlan(p) {
-    const c = clientById(p.clientId), t = c ? targets(c) : {};
+  function printPlan(p, client, tgt) {
+    const c = client || clientById(p.clientId), t = tgt || (c && !client ? targets(c) : {});
     const row = (cells, cls = '') => `<tr class="${cls}">${cells.map((x, i) => `<td class="${i ? 'r' : ''}">${x}</td>`).join('')}</tr>`;
     $('#print').innerHTML = `
       <div class="ph"><img src="icons/icon.svg" alt=""><div><div class="b">Nutri<span style="color:#65a30d">Lab</span></div><div>by Javier Carbonell</div></div>
@@ -1430,6 +1514,8 @@
   }
 
   async function bootCloud() {
+    const pm = location.hash.match(/^#\/p\/([\w-]{32,})/);
+    if (pm) return openPortal(pm[1]);
     render();
     try {
       cloud = await import('./cloud.js');
@@ -1440,6 +1526,8 @@
       else if (event === 'SIGNED_IN' && user && !acct) enter(user);
     });
     const user = await cloud.currentUser().catch(() => null);
+    const lastPortal = localStorage.getItem(PORTAL_LAST);
+    if (!user && lastPortal) return openPortal(lastPortal); // cliente que abre la app desde su pantalla de inicio
     if (user) await enter(user); else { gate = 'auth'; render(); }
     if (/[?&]pago=ok/.test(location.hash) && acct) { history.replaceState(null, '', location.pathname + '#/ajustes'); afterPayment(); }
     else if (/[?&]pago=/.test(location.hash)) history.replaceState(null, '', location.pathname + '#/ajustes');
@@ -1499,10 +1587,24 @@
     }));
     $$('img[data-photo]').forEach(async (img) => { const meta = allPhotos().find((x) => x.id === img.dataset.photo); const u = meta && await photoUrl(meta); if (u) img.src = u; img.onclick = () => viewPhoto(meta); });
     if (r.view === 'settings' && CLOUD && acct) showAccessLog();
+    if (r.view === 'client' && r.sub === 'resumen' && CLOUD && acct && !viewing) fillPortalCard();
     if (r.view === 'settings' && navigator.storage?.estimate) navigator.storage.estimate().then(({ usage }) => { const el = $('#storageInfo'); if (el && usage) el.insertAdjacentText('beforeend', ` · ${fileSize(usage)} usados`); });
   }
 
   document.addEventListener('click', (e) => {
+    if (portal) {
+      const pt = e.target.closest('[data-pday], [data-act]');
+      if (!pt) return;
+      if (pt.dataset.pday) { portal.day = num(pt.dataset.pday); return render(); }
+      if (pt.dataset.act === 'portal-print') { const d = portal.data; return printPlan(d.plan, { name: d.client.name }, {}); }
+      if (pt.dataset.act === 'portal-exit') {
+        e.preventDefault(); localStorage.removeItem(PORTAL_LAST); portal = null;
+        history.replaceState(null, '', location.pathname + '#/'); document.body.classList.remove('gated');
+        if (CLOUD) { gate = acct ? null : 'auth'; if (!acct) ui.authMode = 'login'; }
+        return render();
+      }
+      return;
+    }
     const t = e.target.closest('[data-nav], [data-act], [data-cfilter], [data-fcat], [data-metric], [data-measure], [data-day], [data-item], [data-food], [data-settheme], [data-auth], [data-adminrow]');
     if (!t || t.closest('.att')) return;
     const d = t.dataset;
@@ -1564,6 +1666,11 @@
       case 'recheck': return afterPayment();
       case 'logout': return logout();
       case 'exit-view': return exitViewing();
+      case 'portal-create': return cloud.createPortalLink(acct.user.id, d.id).then(() => { toast('Enlace creado ✓'); fillPortalCard(); }).catch((err) => toast(err.message));
+      case 'portal-copy': return copyText(portalUrl(d.token), 'Enlace copiado');
+      case 'portal-revoke':
+        if (!confirm('¿Anular el enlace? El cliente dejará de ver su plan hasta que crees uno nuevo.')) return;
+        return cloud.revokePortalLink(acct.user.id, d.id).then(() => { toast('Enlace anulado'); fillPortalCard(); }).catch((err) => toast(err.message));
       case 'admin-reload': adminRows = null; return render();
       case 'export': return download(`nutrilab-${today()}.json`, new Blob([JSON.stringify(shareable(), null, 1)], { type: 'application/json' }));
       case 'sync-on': return enableSync();
