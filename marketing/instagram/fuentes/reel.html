@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>NutriLab · Reel</title>
+<style>
+@font-face { font-family: 'Jakarta'; src: url(font.woff2) format('woff2'); font-weight: 200 800; }
+:root { --lime: #d9f99d; --deep: #03291e; --brand: #059669; --ink: #0b1f17; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; font-family: 'Jakarta', system-ui, sans-serif; }
+#stage { position: absolute; inset: 0; overflow: hidden; color: #fff;
+  background: radial-gradient(110% 50% at 90% 0%, #0f9b6c, transparent 60%), radial-gradient(90% 50% at 0% 100%, #0b5e44, transparent 70%), linear-gradient(160deg, #06402f, var(--deep) 70%); }
+.layer { position: absolute; opacity: 0; will-change: transform, opacity; }
+.cap { left: 80px; right: 80px; top: 210px; font-size: 76px; font-weight: 800; line-height: 1.06; letter-spacing: -.03em; }
+.cap em { font-style: normal; color: var(--lime); }
+.cap small { display: block; font-size: 38px; font-weight: 600; letter-spacing: -.01em; opacity: .8; margin-top: 20px; line-height: 1.25; }
+.hook { left: 80px; right: 80px; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; font-size: 104px; font-weight: 800; line-height: 1.04; letter-spacing: -.04em; }
+.hook em { font-style: normal; color: var(--lime); }
+.hook .emo { font-size: 150px; margin-bottom: 30px; }
+.phone { left: 245px; top: 660px; width: 590px; border-radius: 82px; padding: 18px; background: linear-gradient(145deg, #1b2b25, #050b09); box-shadow: 0 60px 120px -30px rgba(0,0,0,.6), inset 0 0 0 2px #2f4a40; }
+.screen { position: relative; width: 554px; height: calc(554px * 720 / 390); border-radius: 64px; overflow: hidden; background: #f3f6f4; }
+.screen img { position: absolute; left: 0; top: 0; width: 100%; opacity: 0; }
+.card { left: 110px; width: 860px; border-radius: 48px; overflow: hidden; background: #f3f6f4; box-shadow: 0 60px 120px -30px rgba(0,0,0,.6); }
+.card img { width: 100%; display: block; margin-top: -6px; }
+.chip { display: inline-flex; align-items: center; gap: 16px; padding: 24px 34px; border-radius: 30px; background: #fff; color: var(--ink); font-weight: 800; font-size: 38px; box-shadow: 0 30px 60px -20px rgba(0,0,0,.5); }
+.chip .ok { width: 54px; height: 54px; border-radius: 50%; background: var(--brand); color: #fff; display: grid; place-items: center; font-size: 32px; }
+.chip small { display: block; font-size: 26px; color: #4b6358; font-weight: 600; }
+.wa { left: 90px; width: 820px; background: #dcf8c6; color: #111b21; border-radius: 36px 36px 10px 36px; padding: 34px 40px 22px; font-size: 40px; line-height: 1.32; box-shadow: 0 40px 80px -20px rgba(0,0,0,.5); }
+.wa a { color: #027eb5; word-break: break-all; }
+.wa .who { font-size: 30px; font-weight: 800; color: #075e54; margin-bottom: 8px; }
+.wa .t { text-align: right; font-size: 26px; color: #667781; margin-top: 8px; }
+.cta { inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 80px; }
+.cta img { width: 260px; height: 260px; border-radius: 64px; box-shadow: 0 30px 70px rgba(0,0,0,.4); }
+.cta .n { font-size: 96px; font-weight: 800; letter-spacing: -.03em; margin-top: 44px; } .cta .n span { color: var(--lime); }
+.cta .by { font-size: 36px; opacity: .75; margin-top: 6px; }
+.cta .big { font-size: 74px; font-weight: 800; letter-spacing: -.03em; line-height: 1.08; margin-top: 90px; }
+.cta .big em { font-style: normal; color: var(--lime); }
+.cta .pill { margin-top: 50px; background: var(--lime); color: var(--deep); font-weight: 800; font-size: 44px; padding: 26px 50px; border-radius: 60px; }
+.cta .small { margin-top: 28px; font-size: 32px; opacity: .75; }
+.laptop { left: 60px; width: 960px; top: 760px; }
+.laptop .scr { background: #0d1512; padding: 14px; border-radius: 26px 26px 0 0; }
+.laptop .scr img { width: 100%; display: block; border-radius: 10px; }
+.laptop .base { height: 26px; margin: 0 -40px; border-radius: 0 0 40px 40px; background: linear-gradient(#d7e0dc, #aebbb5); }
+.word { left: 80px; right: 80px; top: 230px; font-size: 120px; font-weight: 800; letter-spacing: -.045em; line-height: 1; }
+.word span { color: var(--lime); }
+.count { right: 80px; top: 120px; font-size: 34px; font-weight: 800; opacity: .6; }
+.brandmark { left: 80px; top: 96px; display: flex; align-items: center; gap: 16px; font-weight: 800; font-size: 36px; opacity: 1; }
+.brandmark img { width: 64px; height: 64px; border-radius: 18px; }
+.brandmark span { color: var(--lime); }
+.tap { width: 120px; height: 120px; border-radius: 50%; border: 6px solid rgba(255,255,255,.95); background: rgba(255,255,255,.25); }
+</style></head>
+<body><div id="stage"></div>
+<script>
+const R = new URLSearchParams(location.search).get('r') || '1';
+const S = 554 / 1170; // escala de las capturas (1170 px de ancho) a la pantalla del móvil
+const stage = document.getElementById('stage');
+const ease = (x) => (x < 0 ? 0 : x > 1 ? 1 : 1 - Math.pow(1 - x, 3));
+const easeIO = (x) => (x < 0 ? 0 : x > 1 ? 1 : x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const L = []; // capas: {el, a, b, enter, exit, update}
+function add(html, cls, style, a, b, opt = {}) {
+  const el = document.createElement('div'); el.className = 'layer ' + cls; el.style.cssText = style; el.innerHTML = html; stage.appendChild(el);
+  L.push({ el, a, b, enter: opt.enter ?? 'up', exit: opt.exit ?? 'fade', update: opt.update, d: opt.d ?? .45 }); return el;
+}
+// Móvil con pantallas: cada pantalla [img, desde, hasta, scroll(px de la captura) opcional]
+function phone(a, b, screens, style = '', opt = {}) {
+  const el = add(`<div class="screen">${screens.map((s, i) => `<img data-i="${i}" src="img/${s[0]}">`).join('')}</div>`, 'phone', style, a, b, {
+    ...opt,
+    update: (t) => screens.forEach((s, i) => {
+      const img = el.querySelector(`[data-i="${i}"]`);
+      const o = Math.min(ease((t - s[1]) / .3), 1 - ease((t - s[2]) / .3));
+      img.style.opacity = Math.max(0, o);
+      if (s[3]) img.style.transform = `translateY(${-s[3] * S * easeIO((t - s[1] - .5) / (s[2] - s[1] - 1))}px)`;
+    }),
+  });
+  return el;
+}
+const cap = (html, a, b) => add(html, 'cap', '', a, b);
+const brandmark = (a, b) => add(`<img src="icon.svg"><div>Nutri<span>Lab</span></div>`, 'brandmark', '', a, b, { enter: 'fade' });
+const cta = (a, b, big, extra = '') => add(`<img src="icon-maskable.svg"><div class="n">Nutri<span>Lab</span></div><div class="by">La app para nutricionistas</div><div class="big">${big}</div><div class="pill">14 días gratis · sin tarjeta</div><div class="small">${extra || 'Enlace en la bio'}</div>`, 'cta', '', a, b, { enter: 'pop', exit: 'none' });
+const chip = (html, style, a, b) => add(html, 'chip', style, a, b, { enter: 'pop' });
+let T = 0;
+
+if (R === '1') { // ============ IA: la dieta en minutos
+  add(`<div class="emo">😩</div>¿Sigues haciendo las dietas <em>en Excel?</em>`, 'hook', '', 0, 2.8, { enter: 'pop' });
+  brandmark(2.8, 15.2);
+  cap(`Abre la ficha <em>de tu cliente</em><small>Calorías y macros ya calculados</small>`, 2.9, 5.6);
+  cap(`Pídele la dieta <em>a la IA</em><small>Con sus alergias, gustos y horarios</small>`, 5.6, 8.4);
+  cap(`La diseña <em>con sus datos</em><small>Mientras tú sigues con la consulta</small>`, 8.4, 10.4);
+  cap(`Revisa, ajusta <em>y envíala</em><small>PDF o WhatsApp en un toque</small>`, 10.4, 15.2);
+  phone(3.0, 15.2, [['client-ring.png', 3.0, 8.4], ['ai-loading.png', 8.4, 10.4], ['ai-plan-full.png', 10.4, 15.2, 3600]]);
+  add(`<img src="img/sheet-ai.png">`, 'card', 'top:1000px', 5.9, 8.5, { enter: 'up', d: .4 });
+  chip(`<span class="ok">✓</span><div>1656 kcal<small>objetivo 1690</small></div>`, 'left:60px; top:1180px', 11.0, 15.2);
+  chip(`<span class="ok" style="background:#7c3aed">✦</span><div>Sin lactosa<small>respeta sus alergias</small></div>`, 'right:60px; top:1420px', 11.6, 15.2);
+  cta(15.2, 19, `Tu próxima dieta, <em>en minutos.</em>`);
+  T = 19;
+}
+if (R === '2') { // ============ El paciente, conectado
+  add(`<div class="emo">🙃</div>Tu paciente perdió el PDF de la dieta… <em>otra vez</em>`, 'hook', '', 0, 2.8, { enter: 'pop' });
+  brandmark(2.8, 15.4);
+  cap(`Envíale <em>su enlace</em><small>Por WhatsApp. Sin descargas ni contraseñas</small>`, 2.9, 5.8);
+  add(`<div class="who">Laura · Nutricionista</div>Hola Ana 👋 Aquí tienes tu plan y tu progreso. Ábrelo cuando quieras:<br><a>javifx004-cmd.github.io/nutrilab/#/p/…</a><div class="t">10:42 ✓✓</div>`, 'wa', 'top:760px', 3.2, 5.8, { enter: 'pop' });
+  add('', 'tap', 'left:300px; top:1080px', 4.6, 5.4, { enter: 'pop' });
+  cap(`Ve su dieta <em>en su móvil</em><small>Siempre la versión más reciente</small>`, 5.8, 10.6);
+  phone(5.9, 15.4, [['portal-full.png', 5.9, 10.8, 2600], ['portal.png', 10.8, 15.4]]);
+  cap(`Y su cita, <em>en su calendario</em><small>Con aviso antes de la revisión</small>`, 10.6, 15.4);
+  add(`<img src="img/sheet-cal.png">`, 'card', 'top:1080px', 11.2, 15.4, { enter: 'up' });
+  cta(15.4, 19.2, `Tu consulta, <em>en su bolsillo.</em>`);
+  T = 19.2;
+}
+if (R === '3') { // ============ Todo en una app
+  add(`<div class="emo">📋</div>Todo tu trabajo de nutricionista <em>en una app</em>`, 'hook', '', 0, 2.6, { enter: 'pop' });
+  const items = [
+    ['Tus <span>clientes</span>', 'clients.png'], ['Dietas <span>con IA</span>', 'ai-plan.png'], ['Su <span>progreso</span>', 'progress.png'],
+    ['Su <span>enlace</span>', 'portal.png'], ['Tus <span>citas</span>', 'sheet-cal.png', 'card'], ['También <span>en el PC</span>', 'pc.png', 'laptop'],
+  ];
+  const d = 2.1; let t = 2.6;
+  brandmark(2.6, 2.6 + d * items.length);
+  items.forEach(([w, img, kind], i) => {
+    const a = t + i * d, b = a + d;
+    add(w, 'word', '', a, b, { enter: 'up', d: .3 });
+    add(`${i + 1}/${items.length}`, 'count', '', a, b, { enter: 'fade', d: .2 });
+    if (kind === 'card') add(`<img src="img/${img}">`, 'card', 'top:760px', a, b, { enter: 'up', d: .3 });
+    else if (kind === 'laptop') add(`<div class="scr"><img src="img/${img}"></div><div class="base"></div>`, 'laptop', '', a, b, { enter: 'up', d: .3 });
+    else phone(a, b, [[img, a, b + 1]], 'top:560px', { enter: 'up', d: .3 });
+  });
+  const end = t + d * items.length;
+  cta(end, end + 3.8, `49,99 €/mes. <em>Todo incluido.</em>`);
+  T = end + 3.8;
+}
+// Plus Jakarta deja aire antes de «.» y «,» en tamaños grandes
+document.head.insertAdjacentHTML('beforeend', '<style>.pn{margin-left:-.07em}</style>');
+for (const h of document.querySelectorAll('.hook, .cap, .cta .big, .word')) {
+  const walk = (n) => { for (const c of [...n.childNodes]) {
+    if (c.nodeType === 3 && /[.,]/.test(c.data)) { const f = document.createElement('span'); f.innerHTML = c.data.replace(/[.,]/g, (m) => `<span class="pn">${m}</span>`); c.replaceWith(...f.childNodes); }
+    else if (c.nodeType === 1 && c.tagName !== 'SMALL') walk(c); } };
+  walk(h);
+}
+window.DURATION = T;
+window.renderAt = (t) => {
+  for (const l of L) {
+    const inA = (t - l.a) / l.d, outB = (l.b - t) / l.d;
+    let o = Math.min(ease(inA), l.exit === 'none' ? 1 : ease(outB));
+    if (t < l.a || (t > l.b && l.exit !== 'none')) o = 0;
+    const k = ease(inA);
+    let tr = '';
+    if (l.enter === 'up') tr = `translateY(${(1 - k) * 90}px)`;
+    if (l.enter === 'pop') tr = `scale(${.9 + .1 * k})`;
+    if (l.el.classList.contains('cta') && t > l.a) tr = `scale(${.9 + .1 * k})`;
+    // movimiento lento y continuo para que no parezca una imagen fija
+    if (l.el.classList.contains('phone') || l.el.classList.contains('laptop')) tr += ` scale(${1 + .02 * Math.min(1, Math.max(0, (t - l.a) / 6))})`;
+    l.el.style.opacity = Math.max(0, o); l.el.style.transform = tr;
+    if (l.update && o > 0) l.update(t);
+  }
+};
+window.renderAt(0);
+</script></body></html>
