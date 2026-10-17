@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>NutriLab · Dossier</title>
+<style>
+/* Fuente e icono de la app (rutas relativas a esta carpeta) */
+@font-face { font-family: 'Jakarta'; src: url(../../vendor/fonts/plus-jakarta-sans.woff2) format('woff2'); font-weight: 200 800; }
+@page { size: A4; margin: 0; }
+:root {
+  --ink: #0b1f17; --muted: #4b6358; --line: #dbe7e1; --bg: #f3f7f5;
+  --brand: #059669; --brand-2: #047857; --brand-3: #10b981; --lime: #d9f99d; --deep: #03291e;
+  --ai1: #8b5cf6; --ai2: #2563eb;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { font-family: 'Jakarta', system-ui, sans-serif; color: var(--ink); font-size: 10.5pt; line-height: 1.5; }
+.page { width: 210mm; height: 297mm; position: relative; overflow: hidden; page-break-after: always; background: #fff; padding: 18mm 17mm 16mm; }
+.page:last-child { page-break-after: auto; }
+h1, h2, h3 { letter-spacing: -.025em; line-height: 1.08; }
+h2 { font-size: 27pt; font-weight: 800; }
+h3 { font-size: 12.5pt; font-weight: 750; }
+.eyebrow { font-size: 8.5pt; font-weight: 750; letter-spacing: .14em; text-transform: uppercase; color: var(--brand); margin-bottom: 4mm; }
+.lead { font-size: 12pt; color: var(--muted); margin-top: 4mm; max-width: 150mm; }
+.foot { position: absolute; left: 17mm; right: 17mm; bottom: 9mm; display: flex; justify-content: space-between; font-size: 8pt; color: #8aa197; }
+.foot b { color: var(--brand-2); font-weight: 700; }
+.hl { color: var(--brand); }
+
+/* teléfono */
+/* sin aspect-ratio en el marco: la imagen marca la altura y no se recorta */
+.phone { width: 62mm; border-radius: 9mm; padding: 2.2mm; background: linear-gradient(145deg, #1b2b25, #050b09); box-shadow: 0 10mm 22mm -8mm rgba(3, 41, 30, .45), inset 0 0 0 .4mm #2f4a40; position: relative; }
+.phone img { width: 100%; aspect-ratio: 390 / 664; object-fit: cover; object-position: top; border-radius: 7mm; display: block; }
+.phone.sm { width: 52mm; border-radius: 7.6mm; } .phone.sm img { border-radius: 5.8mm; }
+.phone.md { width: 58mm; border-radius: 8.4mm; } .phone.md img { border-radius: 6.4mm; }
+.phone.xs { width: 46mm; border-radius: 7mm; } .phone.xs img { border-radius: 5.2mm; }
+
+/* ---------------------------------------------------------------- portada */
+.cover { background: radial-gradient(120% 70% at 85% 0%, #0f9b6c 0%, transparent 60%), radial-gradient(90% 60% at 0% 100%, #0b5e44 0%, transparent 70%), linear-gradient(160deg, #06402f, var(--deep) 70%); color: #fff; padding: 20mm 18mm; }
+.cover .brand { display: flex; align-items: center; gap: 5mm; }
+.cover .brand img { width: 20mm; height: 20mm; border-radius: 5.4mm; box-shadow: 0 4mm 10mm rgba(0,0,0,.35); }
+.cover .brand .n { font-size: 26pt; font-weight: 800; letter-spacing: -.03em; line-height: 1; }
+.cover .brand .n span { color: var(--lime); }
+.cover .brand .by { font-size: 10.5pt; opacity: .8; margin-top: 1.5mm; }
+.cover h1 { font-size: 40pt; font-weight: 800; margin-top: 20mm; max-width: 165mm; }
+.cover h1 span { color: var(--lime); }
+.cover .sub { font-size: 13.5pt; opacity: .86; margin-top: 6mm; max-width: 150mm; line-height: 1.45; }
+.cover .chips { display: flex; gap: 3mm; margin-top: 8mm; flex-wrap: wrap; }
+.cover .chip { border: .3mm solid rgba(255,255,255,.28); background: rgba(255,255,255,.08); border-radius: 20mm; padding: 2mm 4.5mm; font-size: 9.5pt; font-weight: 600; }
+.cover .chip.lime { background: var(--lime); color: var(--deep); border-color: var(--lime); }
+.cover .phones { position: absolute; left: 0; right: 0; bottom: -16mm; height: 150mm; }
+.cover .phones .phone { width: 66mm; }
+.cover .phones .phone { position: absolute; }
+.cover .phones .p1 { left: 10mm; bottom: 18mm; transform: rotate(-7deg); }
+.cover .phones .p2 { left: 68mm; bottom: 30mm; z-index: 2; width: 74mm; }
+.cover .phones .p3 { right: 8mm; bottom: 18mm; transform: rotate(7deg); }
+.cover .leaf { position: absolute; right: -20mm; top: 40mm; width: 110mm; opacity: .06; }
+
+/* ---------------------------------------------------------------- tarjetas */
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; margin-top: 7mm; }
+.compare > div { border-radius: 5mm; padding: 6mm; }
+.compare .before { background: #fbf4f2; border: .3mm solid #f3dcd5; }
+.compare .after { background: linear-gradient(160deg, #ecfdf5, #e2f6ee); border: .3mm solid #bfe9d6; }
+.compare h3 { margin-bottom: 3mm; }
+.compare ul { list-style: none; display: grid; gap: 2mm; }
+.compare li { padding-left: 6mm; position: relative; font-size: 9.6pt; line-height: 1.4; }
+.compare .before li::before { content: '✕'; position: absolute; left: 0; color: #c2410c; font-weight: 700; }
+.compare .after li::before { content: '✓'; position: absolute; left: 0; color: var(--brand); font-weight: 800; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; margin-top: 7mm; }
+.feat { border: .3mm solid var(--line); border-radius: 5mm; padding: 4.5mm 4.5mm; background: #fff; box-shadow: 0 2mm 6mm -3mm rgba(3, 41, 30, .12); }
+.feat .ic { width: 10mm; height: 10mm; border-radius: 3.2mm; display: grid; place-items: center; background: linear-gradient(140deg, var(--brand-3), var(--brand-2)); color: #fff; margin-bottom: 2.8mm; }
+.feat .ic.ai { background: linear-gradient(140deg, var(--ai1), var(--ai2)); }
+.feat .ic svg { width: 5.6mm; height: 5.6mm; }
+.feat p { font-size: 9pt; color: var(--muted); margin-top: 1.6mm; line-height: 1.45; }
+
+/* ---------------------------------------------------------------- páginas de pantallas */
+.show { display: grid; grid-template-columns: auto 1fr; gap: 9mm; align-items: center; margin-top: 9mm; }
+.show.rev { grid-template-columns: 1fr auto; }
+.pair { display: flex; gap: 5mm; align-items: flex-start; }
+.pair .phone:nth-child(2) { margin-top: 12mm; }
+.pair.tight .phone:nth-child(2) { margin-top: 8mm; }
+.points { list-style: none; display: grid; gap: 4.5mm; }
+.points li { display: grid; grid-template-columns: 8mm 1fr; gap: 2.5mm; }
+.points .n { width: 8mm; height: 8mm; border-radius: 50%; background: #e3f6ee; color: var(--brand-2); font-weight: 800; font-size: 9pt; display: grid; place-items: center; }
+.points b { display: block; font-size: 10.8pt; }
+.points span { color: var(--muted); font-size: 9.6pt; line-height: 1.45; }
+.laptop { margin: 9mm auto 0; width: 140mm; }
+.laptop .screen { border-radius: 4mm 4mm 0 0; background: #0d1512; padding: 2.4mm; box-shadow: 0 10mm 20mm -10mm rgba(3, 41, 30, .4); }
+.laptop .screen img { width: 100%; display: block; border-radius: 1.6mm; aspect-ratio: 16 / 9.3; object-fit: cover; object-position: top; }
+.laptop .base { height: 4mm; background: linear-gradient(#d7e0dc, #aebbb5); border-radius: 0 0 6mm 6mm; margin: 0 -8mm; }
+.caption { text-align: center; font-size: 9pt; color: var(--muted); margin-top: 3mm; }
+
+.band { margin-top: 9mm; border-radius: 6mm; padding: 6mm 7mm; background: linear-gradient(140deg, #06402f, var(--deep)); color: #fff; display: grid; grid-template-columns: repeat(4, 1fr); gap: 5mm; }
+.band b { display: block; font-size: 10pt; margin-bottom: 1mm; color: var(--lime); }
+.band span { font-size: 8.8pt; opacity: .85; line-height: 1.4; display: block; }
+
+/* ---------------------------------------------------------------- precio */
+.pricing { display: grid; grid-template-columns: 1.05fr 1fr; gap: 8mm; margin-top: 8mm; align-items: stretch; }
+.price-card { border-radius: 7mm; padding: 9mm 8mm; color: #fff; background: radial-gradient(90% 60% at 100% 0%, #13a372, transparent 70%), linear-gradient(160deg, #06402f, var(--deep)); box-shadow: 0 12mm 24mm -12mm rgba(3, 41, 30, .55); position: relative; overflow: hidden; }
+.price-card .tag { display: inline-block; background: var(--lime); color: var(--deep); font-weight: 800; font-size: 8.5pt; border-radius: 10mm; padding: 1.3mm 3.6mm; letter-spacing: .04em; }
+.price-card .amt { white-space: nowrap; font-size: 44pt; font-weight: 800; letter-spacing: -.04em; line-height: 1; margin-top: 6mm; }
+.price-card .amt small { font-size: 14pt; font-weight: 600; letter-spacing: 0; opacity: .8; }
+.price-card .per { opacity: .82; margin-top: 2mm; }
+.price-card ul { list-style: none; margin-top: 6mm; display: grid; gap: 2.4mm; }
+.price-card li { padding-left: 6.5mm; position: relative; font-size: 10pt; }
+.price-card li::before { content: '✓'; position: absolute; left: 0; color: var(--lime); font-weight: 800; }
+.steps { display: grid; gap: 4mm; align-content: start; }
+.step { border: .3mm solid var(--line); border-radius: 5mm; padding: 5mm; display: grid; grid-template-columns: 10mm 1fr; gap: 3.5mm; align-items: start; }
+.step .n { width: 10mm; height: 10mm; border-radius: 3mm; background: #e3f6ee; color: var(--brand-2); font-weight: 800; display: grid; place-items: center; }
+.step p { font-size: 9.4pt; color: var(--muted); margin-top: .8mm; }
+.cta { margin-top: 8mm; display: grid; grid-template-columns: auto 1fr; gap: 8mm; align-items: center; border-radius: 7mm; padding: 7mm; background: var(--bg); border: .3mm solid var(--line); }
+.cta .qr { width: 36mm; height: 36mm; padding: 3mm; background: #fff; border-radius: 4mm; border: .3mm solid var(--line); }
+.cta .qr img { width: 100%; height: 100%; display: block; }
+.cta h3 { font-size: 17pt; font-weight: 800; }
+.cta .url { font-size: 12.5pt; font-weight: 700; color: var(--brand-2); margin-top: 2mm; }
+.cta p { color: var(--muted); font-size: 9.6pt; margin-top: 2mm; }
+.sig { display: flex; align-items: center; gap: 4mm; margin-top: 4mm; }
+.sig img { width: 12mm; height: 12mm; border-radius: 3.4mm; }
+.sig b { font-size: 11pt; display: block; }
+.sig span { color: var(--muted); font-size: 9pt; }
+.note { font-size: 7.8pt; color: #8aa197; margin-top: 5mm; line-height: 1.45; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ 1 · PORTADA -->
+<section class="page cover">
+  <svg class="leaf" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.2"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10z"/><path d="M2 21c0-3 1.9-5.4 5.1-6"/></svg>
+  <div class="brand"><img src="../../icons/icon.svg" alt=""><div><div class="n">Nutri<span>Lab</span></div><div class="by">by Javier Carbonell</div></div></div>
+  <h1>Tu consulta de nutrición, <span>en el bolsillo.</span></h1>
+  <p class="sub">Clientes, dietas a mano o con inteligencia artificial, progreso, citas y un enlace privado para cada paciente. En el móvil, la tablet y el PC.</p>
+  <div class="chips"><span class="chip lime">14 días gratis</span><span class="chip">Sin permanencia</span><span class="chip">iPhone · Android · PC</span></div>
+  <div class="phones">
+    <div class="phone p1"><img src="client.png" alt=""></div>
+    <div class="phone p2"><img src="home.png" alt=""></div>
+    <div class="phone p3"><img src="plan.png" alt=""></div>
+  </div>
+</section>
+
+<!-- ============================================================ 2 · QUÉ ES -->
+<section class="page">
+  <div class="eyebrow">Por qué NutriLab</div>
+  <h2>Menos papeleo.<br><span class="hl">Más consulta.</span></h2>
+  <p class="lead">NutriLab reúne en una sola app todo lo que hoy tienes repartido entre hojas de cálculo, documentos, WhatsApp y la agenda. Pensada para nutricionistas y dietistas que trabajan desde el móvil.</p>
+
+  <div class="compare">
+    <div class="before"><h3>Sin NutriLab</h3><ul>
+      <li>Excel para calcular calorías y macros a mano</li>
+      <li>Dietas en Word que hay que maquetar cada vez</li>
+      <li>Pesos y medidas en libretas o notas sueltas</li>
+      <li>El paciente pierde el PDF y te lo vuelve a pedir</li>
+      <li>Citas en papel y recordatorios que se olvidan</li>
+    </ul></div>
+    <div class="after"><h3>Con NutriLab</h3><ul>
+      <li>Calorías y macros calculados al crear la ficha</li>
+      <li>Dietas completas en minutos, a mano o con IA</li>
+      <li>Gráficas de progreso y fotos en cada revisión</li>
+      <li>Cada paciente tiene su enlace con su dieta siempre al día</li>
+      <li>Citas al calendario del móvil y aviso por WhatsApp</li>
+    </ul></div>
+  </div>
+
+  <div class="grid">
+    <div class="feat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a6 6 0 0 1 6-6h2a6 6 0 0 1 6 6v1"/></svg></div>
+      <h3>Fichas de clientes</h3><p>Datos, objetivo, alergias y preferencias. Calcula sus calorías y macros con la fórmula Mifflin-St Jeor.</p></div>
+    <div class="feat"><div class="ic ai"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg></div>
+      <h3>Dietas con IA</h3><p>Un plan completo con cantidades, medidas caseras y recetas, ajustado a la ficha y sin sus alérgenos.*</p></div>
+    <div class="feat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/></svg></div>
+      <h3>Dietas a mano</h3><p>Base de unos 150 alimentos habituales en España y los tuyos propios. Macros al momento frente al objetivo.</p></div>
+    <div class="feat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></div>
+      <h3>Progreso visual</h3><p>Peso, % de grasa, cintura y más perímetros, con gráficas hacia el objetivo y fotos de cada revisión.</p></div>
+    <div class="feat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></div>
+      <h3>Enlace del paciente</h3><p>Tu cliente ve su dieta, su progreso y su próxima cita desde el móvil, sin instalar nada ni registrarse.</p></div>
+    <div class="feat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+      <h3>Citas al calendario</h3><p>Programa cada revisión con hora y lugar y añádela al calendario del iPhone, Android, Google u Outlook.</p></div>
+  </div>
+  <p class="note">* La generación con IA usa Claude, de Anthropic, con la clave de API de cada nutricionista; su coste se paga aparte según el uso. La IA propone y el profesional revisa antes de entregar.</p>
+  <div class="foot"><span><b>NutriLab</b> · by Javier Carbonell</span><span>2</span></div>
+</section>
+
+<!-- ============================================================ 3 · CLIENTES Y PROGRESO -->
+<section class="page">
+  <div class="eyebrow">Clientes y progreso</div>
+  <h2>Cada paciente,<br><span class="hl">de un vistazo.</span></h2>
+  <div class="show">
+    <div class="pair tight">
+      <div class="phone sm"><img src="clients.png" alt=""></div>
+      <div class="phone sm"><img src="client.png" alt=""></div>
+    </div>
+    <ul class="points">
+      <li><span class="n">1</span><div><b>Todo en una ficha</b><span>Datos personales, objetivo, actividad, alergias, gustos, contacto y notas privadas.</span></div></li>
+      <li><span class="n">2</span><div><b>Objetivos automáticos</b><span>Calorías y reparto de proteína, hidratos y grasa según el objetivo: perder grasa, mantener, ganar músculo o recomposición.</span></div></li>
+      <li><span class="n">3</span><div><b>Mediciones con fotos</b><span>Registra peso y perímetros en cada revisión y compara la evolución con gráficas claras.</span></div></li>
+      <li><span class="n">4</span><div><b>Contacto en un toque</b><span>WhatsApp, llamada o email directamente desde la ficha.</span></div></li>
+    </ul>
+  </div>
+  <div class="laptop"><div class="screen"><img src="pc.png" alt=""></div><div class="base"></div></div>
+  <p class="caption">También en el ordenador: los mismos datos en el PC, el móvil y la tablet, sincronizados.</p>
+  <div class="foot"><span><b>NutriLab</b> · by Javier Carbonell</span><span>3</span></div>
+</section>
+
+<!-- ============================================================ 4 · DIETAS -->
+<section class="page">
+  <div class="eyebrow">Dietas</div>
+  <h2>Una dieta completa<br><span class="hl">en minutos.</span></h2>
+  <p class="lead">Créala a mano con la base de alimentos o deja que la IA proponga un plan a partir de la ficha del cliente. Después ajustas lo que quieras.</p>
+  <div class="show rev">
+    <ul class="points">
+      <li><span class="n">1</span><div><b>IA que conoce a tu cliente</b><span>Usa sus calorías, macros, número de comidas, alergias y lo que no le gusta. Puedes añadir indicaciones: «come en la oficina», «cenas rápidas»…</span></div></li>
+      <li><span class="n">2</span><div><b>Macros en tiempo real</b><span>Cada cambio de cantidad actualiza las calorías del día frente al objetivo.</span></div></li>
+      <li><span class="n">3</span><div><b>Varios días y recetas</b><span>Día tipo o semana completa, con horarios, medidas caseras y preparación.</span></div></li>
+      <li><span class="n">4</span><div><b>PDF y WhatsApp</b><span>Un PDF limpio para imprimir o un texto listo para enviar al cliente.</span></div></li>
+    </ul>
+    <div class="pair">
+      <div class="phone sm"><img src="ai.png" alt=""></div>
+      <div class="phone sm"><img src="plan.png" alt=""></div>
+    </div>
+  </div>
+  <div class="band">
+    <div><b>Mifflin-St Jeor</b><span>Gasto calculado con la fórmula de referencia y el nivel de actividad.</span></div>
+    <div><b>4 objetivos</b><span>Perder grasa, mantener, ganar músculo o recomposición.</span></div>
+    <div><b>~150 alimentos</b><span>Habituales en España, por 100 g, y los que tú añadas.</span></div>
+    <div><b>Revisión con IA</b><span>Pide cambios a la IA: «más proteína en la cena», «sin pescado»…</span></div>
+  </div>
+  <div class="foot"><span><b>NutriLab</b> · by Javier Carbonell</span><span>4</span></div>
+</section>
+
+<!-- ============================================================ 5 · PACIENTE Y CITAS -->
+<section class="page">
+  <div class="eyebrow">Tu paciente, conectado</div>
+  <h2>Su dieta en su móvil.<br><span class="hl">Sus citas, en tu calendario.</span></h2>
+  <div class="show">
+    <div class="pair">
+      <div class="phone sm"><img src="portal.png" alt=""></div>
+      <div class="phone sm"><img src="cal.png" alt=""></div>
+    </div>
+    <ul class="points">
+      <li><span class="n">1</span><div><b>Un enlace privado por cliente</b><span>Se lo envías por WhatsApp. Sin descargas ni contraseñas: lo abre y ve su dieta activa, su progreso y su próxima cita.</span></div></li>
+      <li><span class="n">2</span><div><b>Siempre actualizado</b><span>Cuando cambias la dieta, el cliente ve la versión nueva. Puede guardarla como PDF o añadirla a su pantalla de inicio.</span></div></li>
+      <li><span class="n">3</span><div><b>Tú tienes el control</b><span>Solo lectura. No ve tus notas privadas ni fotos. Sabes cuándo lo abrió por última vez y puedes anularlo cuando quieras.</span></div></li>
+      <li><span class="n">4</span><div><b>Citas sin olvidos</b><span>Fecha, hora, duración y lugar. Al calendario del iPhone, Android, Google u Outlook con aviso previo, y recordatorio al cliente por WhatsApp.</span></div></li>
+    </ul>
+  </div>
+  <div class="band">
+    <div><b>Cuentas separadas</b><span>Cada nutricionista solo accede a sus propios clientes.</span></div>
+    <div><b>Enlaces seguros</b><span>Imposibles de adivinar y anulables en un toque.</span></div>
+    <div><b>Sin conexión</b><span>Trabaja sin cobertura; se sincroniza al volver la red.</span></div>
+    <div><b>Tus datos son tuyos</b><span>Exporta una copia completa cuando quieras.</span></div>
+  </div>
+  <div class="foot"><span><b>NutriLab</b> · by Javier Carbonell</span><span>5</span></div>
+</section>
+
+<!-- ============================================================ 6 · PRECIO -->
+<section class="page">
+  <div class="eyebrow">Precio</div>
+  <h2>Un precio. <span class="hl">Todo incluido.</span></h2>
+  <p class="lead">Sin versiones recortadas ni límite de clientes. Pruébala 14 días gratis y decide después.</p>
+  <div class="pricing">
+    <div class="price-card">
+      <span class="tag">14 DÍAS GRATIS</span>
+      <div class="amt">49,99 €<small> /mes</small></div>
+      <div class="per">Sin permanencia. Cancela cuando quieras.</div>
+      <ul>
+        <li>Clientes y dietas ilimitados</li>
+        <li>Dietas a mano y con IA*</li>
+        <li>Progreso con gráficas y fotos</li>
+        <li>Enlace privado para cada paciente</li>
+        <li>Citas al calendario y avisos por WhatsApp</li>
+        <li>PC, tablet y móvil sincronizados</li>
+        <li>PDF de cada dieta</li>
+        <li>Actualizaciones y soporte</li>
+      </ul>
+    </div>
+    <div class="steps">
+      <div class="step"><span class="n">1</span><div><h3>Crea tu cuenta</h3><p>Con tu email, desde el móvil o el PC. Sin tarjeta para la prueba.</p></div></div>
+      <div class="step"><span class="n">2</span><div><h3>Añade tus clientes</h3><p>En un minuto tienes sus calorías y macros calculados.</p></div></div>
+      <div class="step"><span class="n">3</span><div><h3>Crea y envía la dieta</h3><p>A mano o con IA, y se la mandas con su enlace por WhatsApp.</p></div></div>
+      <div class="step"><span class="n">4</span><div><h3>Suscríbete si te convence</h3><p>Tarjeta, Apple Pay, Google Pay o PayPal, con pago seguro de Stripe.</p></div></div>
+    </div>
+  </div>
+  <div class="cta">
+    <div class="qr"><img src="qr.svg" alt="Código QR"></div>
+    <div>
+      <h3>Empieza hoy</h3>
+      <div class="url">javifx004-cmd.github.io/nutrilab</div>
+      <p>Escanea el código con la cámara del móvil o escribe la dirección en el navegador.</p>
+      <div class="sig"><img src="../../icons/icon.svg" alt=""><div><b>Javier Carbonell</b><span>Creador de NutriLab</span></div></div>
+    </div>
+  </div>
+  <p class="note">* La generación con IA necesita una clave de API de Claude (Anthropic) del propio nutricionista, con coste aparte según el uso. NutriLab es una herramienta de apoyo: las dietas deben ser revisadas por un profesional de la nutrición.</p>
+  <div class="foot"><span><b>NutriLab</b> · by Javier Carbonell</span><span>6</span></div>
+</section>
+
+</body>
+</html>
