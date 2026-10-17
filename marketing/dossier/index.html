@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <title>NutriLab · Dossier</title>
 <style>
-/* Fuente e icono de la app (rutas relativas a esta carpeta) */
 @font-face { font-family: 'Jakarta'; src: url(../../vendor/fonts/plus-jakarta-sans.woff2) format('woff2'); font-weight: 200 800; }
 @page { size: A4; margin: 0; }
 :root {
@@ -43,16 +42,16 @@ h3 { font-size: 12.5pt; font-weight: 750; }
 .cover .brand .by { font-size: 10.5pt; opacity: .8; margin-top: 1.5mm; }
 .cover h1 { font-size: 40pt; font-weight: 800; margin-top: 20mm; max-width: 165mm; }
 .cover h1 span { color: var(--lime); }
-.cover .sub { font-size: 13.5pt; opacity: .86; margin-top: 6mm; max-width: 150mm; line-height: 1.45; }
+.cover .sub { font-size: 13.5pt; opacity: .86; margin-top: 6mm; max-width: 165mm; line-height: 1.45; }
 .cover .chips { display: flex; gap: 3mm; margin-top: 8mm; flex-wrap: wrap; }
 .cover .chip { border: .3mm solid rgba(255,255,255,.28); background: rgba(255,255,255,.08); border-radius: 20mm; padding: 2mm 4.5mm; font-size: 9.5pt; font-weight: 600; }
 .cover .chip.lime { background: var(--lime); color: var(--deep); border-color: var(--lime); }
-.cover .phones { position: absolute; left: 0; right: 0; bottom: -16mm; height: 150mm; }
+.cover .phones { position: absolute; left: 0; right: 0; bottom: 0; height: 160mm; }
 .cover .phones .phone { width: 66mm; }
 .cover .phones .phone { position: absolute; }
-.cover .phones .p1 { left: 10mm; bottom: 18mm; transform: rotate(-7deg); }
-.cover .phones .p2 { left: 68mm; bottom: 30mm; z-index: 2; width: 74mm; }
-.cover .phones .p3 { right: 8mm; bottom: 18mm; transform: rotate(7deg); }
+.cover .phones .p1 { left: 9mm; bottom: 9mm; }
+.cover .phones .p2 { left: 68mm; bottom: 20mm; z-index: 2; width: 74mm; }
+.cover .phones .p3 { right: 9mm; bottom: 9mm; }
 .cover .leaf { position: absolute; right: -20mm; top: 40mm; width: 110mm; opacity: .06; }
 
 /* ---------------------------------------------------------------- tarjetas */
@@ -118,6 +117,26 @@ h3 { font-size: 12.5pt; font-weight: 750; }
 .sig b { font-size: 11pt; display: block; }
 .sig span { color: var(--muted); font-size: 9pt; }
 .note { font-size: 7.8pt; color: #8aa197; margin-top: 5mm; line-height: 1.45; }
+
+/* páginas de pantallas, versión grande y legible */
+.page h2 { max-width: 170mm; }
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; margin-top: 8mm; }
+.duo figure { display: flex; flex-direction: column; align-items: center; }
+.duo figcaption { margin-top: 3.5mm; font-size: 9pt; font-weight: 650; color: var(--muted); text-align: center; }
+.phone.lg { width: 84mm; border-radius: 10mm; padding: 2.4mm; } .phone.lg img { aspect-ratio: 390 / 720; border-radius: 7.8mm; }
+.stage { width: 100%; height: calc((84mm - 4.8mm) * 720 / 390 + 4.8mm); border-radius: 8mm; display: grid; place-items: center; padding: 4mm;
+  background: radial-gradient(80% 60% at 20% 0%, #d1fae5, transparent 70%), linear-gradient(160deg, #ecfdf5, #dcf3ea); border: .3mm solid #c7eadb; }
+.stage.ai { background: radial-gradient(80% 60% at 20% 0%, #ede9fe, transparent 70%), linear-gradient(160deg, #f5f3ff, #e7ecfd); border-color: #dcd6fb; }
+.sheetcard { width: 100%; border-radius: 6mm; overflow: hidden; background: #f3f6f4; box-shadow: 0 10mm 22mm -10mm rgba(3, 41, 30, .45), 0 0 0 .3mm rgba(3, 41, 30, .06); }
+.sheetcard img { width: 100%; display: block; margin-top: -1mm; }
+.points.two { grid-template-columns: 1fr 1fr; gap: 5mm 8mm; margin-top: 9mm; }
+.laptop.big { width: 100%; margin-top: 9mm; } .laptop.big .screen img { aspect-ratio: 1100 / 700; }
+.pn { margin-left: -.07em; }
+.sub3 { margin-top: 9mm; font-size: 13pt; }
+.install { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; margin-top: 4mm; }
+.install > div { border: .3mm solid var(--line); border-radius: 5mm; padding: 4.5mm 5mm; }
+.install b { display: block; font-size: 11pt; margin-bottom: 1mm; }
+.install span { font-size: 9.2pt; color: var(--muted); line-height: 1.45; display: block; }
 </style>
 </head>
 <body>
@@ -180,73 +199,74 @@ h3 { font-size: 12.5pt; font-weight: 750; }
 <!-- ============================================================ 3 · CLIENTES Y PROGRESO -->
 <section class="page">
   <div class="eyebrow">Clientes y progreso</div>
-  <h2>Cada paciente,<br><span class="hl">de un vistazo.</span></h2>
-  <div class="show">
-    <div class="pair tight">
-      <div class="phone sm"><img src="clients.png" alt=""></div>
-      <div class="phone sm"><img src="client.png" alt=""></div>
-    </div>
-    <ul class="points">
-      <li><span class="n">1</span><div><b>Todo en una ficha</b><span>Datos personales, objetivo, actividad, alergias, gustos, contacto y notas privadas.</span></div></li>
-      <li><span class="n">2</span><div><b>Objetivos automáticos</b><span>Calorías y reparto de proteína, hidratos y grasa según el objetivo: perder grasa, mantener, ganar músculo o recomposición.</span></div></li>
-      <li><span class="n">3</span><div><b>Mediciones con fotos</b><span>Registra peso y perímetros en cada revisión y compara la evolución con gráficas claras.</span></div></li>
-      <li><span class="n">4</span><div><b>Contacto en un toque</b><span>WhatsApp, llamada o email directamente desde la ficha.</span></div></li>
-    </ul>
+  <h2>Cada paciente, <span class="hl">de un vistazo.</span></h2>
+  <div class="duo">
+    <figure><div class="phone lg"><img src="t-client.png" alt=""></div><figcaption>Ficha con objetivos calculados</figcaption></figure>
+    <figure><div class="phone lg"><img src="t-progress.png" alt=""></div><figcaption>Evolución hacia el objetivo</figcaption></figure>
   </div>
-  <div class="laptop"><div class="screen"><img src="pc.png" alt=""></div><div class="base"></div></div>
-  <p class="caption">También en el ordenador: los mismos datos en el PC, el móvil y la tablet, sincronizados.</p>
+  <ul class="points two">
+    <li><span class="n">1</span><div><b>Todo en una ficha</b><span>Datos, objetivo, actividad, alergias, gustos, contacto y notas privadas.</span></div></li>
+    <li><span class="n">2</span><div><b>Objetivos automáticos</b><span>Calorías, proteína, hidratos y grasa según el objetivo de cada cliente.</span></div></li>
+    <li><span class="n">3</span><div><b>Mediciones con fotos</b><span>Peso, % de grasa y perímetros en cada revisión, con gráficas claras.</span></div></li>
+    <li><span class="n">4</span><div><b>Contacto en un toque</b><span>WhatsApp, llamada o email directamente desde la ficha.</span></div></li>
+  </ul>
   <div class="foot"><span><b>NutriLab</b> · by Javier Carbonell</span><span>3</span></div>
 </section>
 
 <!-- ============================================================ 4 · DIETAS -->
 <section class="page">
   <div class="eyebrow">Dietas</div>
-  <h2>Una dieta completa<br><span class="hl">en minutos.</span></h2>
-  <p class="lead">Créala a mano con la base de alimentos o deja que la IA proponga un plan a partir de la ficha del cliente. Después ajustas lo que quieras.</p>
-  <div class="show rev">
-    <ul class="points">
-      <li><span class="n">1</span><div><b>IA que conoce a tu cliente</b><span>Usa sus calorías, macros, número de comidas, alergias y lo que no le gusta. Puedes añadir indicaciones: «come en la oficina», «cenas rápidas»…</span></div></li>
-      <li><span class="n">2</span><div><b>Macros en tiempo real</b><span>Cada cambio de cantidad actualiza las calorías del día frente al objetivo.</span></div></li>
-      <li><span class="n">3</span><div><b>Varios días y recetas</b><span>Día tipo o semana completa, con horarios, medidas caseras y preparación.</span></div></li>
-      <li><span class="n">4</span><div><b>PDF y WhatsApp</b><span>Un PDF limpio para imprimir o un texto listo para enviar al cliente.</span></div></li>
-    </ul>
-    <div class="pair">
-      <div class="phone sm"><img src="ai.png" alt=""></div>
-      <div class="phone sm"><img src="plan.png" alt=""></div>
-    </div>
+  <h2>Una dieta completa <span class="hl">en minutos.</span></h2>
+  <div class="duo">
+    <figure><div class="stage ai"><div class="sheetcard"><img src="s-ai.png" alt=""></div></div><figcaption>La IA parte de la ficha del cliente</figcaption></figure>
+    <figure><div class="phone lg"><img src="t-plan.png" alt=""></div><figcaption>Macros del día frente al objetivo</figcaption></figure>
   </div>
-  <div class="band">
-    <div><b>Mifflin-St Jeor</b><span>Gasto calculado con la fórmula de referencia y el nivel de actividad.</span></div>
-    <div><b>4 objetivos</b><span>Perder grasa, mantener, ganar músculo o recomposición.</span></div>
-    <div><b>~150 alimentos</b><span>Habituales en España, por 100 g, y los que tú añadas.</span></div>
-    <div><b>Revisión con IA</b><span>Pide cambios a la IA: «más proteína en la cena», «sin pescado»…</span></div>
-  </div>
+  <ul class="points two">
+    <li><span class="n">1</span><div><b>IA que conoce a tu cliente</b><span>Usa sus calorías, macros, comidas al día, alergias y lo que no le gusta.*</span></div></li>
+    <li><span class="n">2</span><div><b>O a mano, igual de rápido</b><span>Unos 150 alimentos habituales en España y los tuyos propios.</span></div></li>
+    <li><span class="n">3</span><div><b>Varios días y recetas</b><span>Día tipo o semana completa, con horarios y medidas caseras.</span></div></li>
+    <li><span class="n">4</span><div><b>PDF y WhatsApp</b><span>Un PDF limpio para imprimir o un texto listo para enviar.</span></div></li>
+  </ul>
+  <p class="note">* Necesita una clave de API de Claude (Anthropic) del nutricionista, con coste aparte según el uso. Las dietas deben ser revisadas por un profesional.</p>
   <div class="foot"><span><b>NutriLab</b> · by Javier Carbonell</span><span>4</span></div>
 </section>
 
 <!-- ============================================================ 5 · PACIENTE Y CITAS -->
 <section class="page">
   <div class="eyebrow">Tu paciente, conectado</div>
-  <h2>Su dieta en su móvil.<br><span class="hl">Sus citas, en tu calendario.</span></h2>
-  <div class="show">
-    <div class="pair">
-      <div class="phone sm"><img src="portal.png" alt=""></div>
-      <div class="phone sm"><img src="cal.png" alt=""></div>
-    </div>
-    <ul class="points">
-      <li><span class="n">1</span><div><b>Un enlace privado por cliente</b><span>Se lo envías por WhatsApp. Sin descargas ni contraseñas: lo abre y ve su dieta activa, su progreso y su próxima cita.</span></div></li>
-      <li><span class="n">2</span><div><b>Siempre actualizado</b><span>Cuando cambias la dieta, el cliente ve la versión nueva. Puede guardarla como PDF o añadirla a su pantalla de inicio.</span></div></li>
-      <li><span class="n">3</span><div><b>Tú tienes el control</b><span>Solo lectura. No ve tus notas privadas ni fotos. Sabes cuándo lo abrió por última vez y puedes anularlo cuando quieras.</span></div></li>
-      <li><span class="n">4</span><div><b>Citas sin olvidos</b><span>Fecha, hora, duración y lugar. Al calendario del iPhone, Android, Google u Outlook con aviso previo, y recordatorio al cliente por WhatsApp.</span></div></li>
-    </ul>
+  <h2>Su dieta y sus citas, <span class="hl">en su móvil.</span></h2>
+  <div class="duo">
+    <figure><div class="phone lg"><img src="t-portal.png" alt=""></div><figcaption>Lo que ve tu paciente con su enlace</figcaption></figure>
+    <figure><div class="stage"><div class="sheetcard"><img src="s-cal.png" alt=""></div></div><figcaption>Cada cita, al calendario en un toque</figcaption></figure>
   </div>
+  <ul class="points two">
+    <li><span class="n">1</span><div><b>Un enlace privado por cliente</b><span>Se lo envías por WhatsApp. Sin descargas ni contraseñas.</span></div></li>
+    <li><span class="n">2</span><div><b>Siempre actualizado</b><span>Ve su dieta activa, su progreso y su próxima cita. Solo lectura.</span></div></li>
+    <li><span class="n">3</span><div><b>Tú tienes el control</b><span>Sabes cuándo lo abrió y puedes anular el enlace cuando quieras.</span></div></li>
+    <li><span class="n">4</span><div><b>Citas sin olvidos</b><span>iPhone, Android, Google u Outlook, con aviso y recordatorio por WhatsApp.</span></div></li>
+  </ul>
+  <div class="foot"><span><b>NutriLab</b> · by Javier Carbonell</span><span>5</span></div>
+</section>
+
+<!-- ============================================================ 6 · PC Y SEGURIDAD -->
+<section class="page">
+  <div class="eyebrow">En todos tus dispositivos</div>
+  <h2>Móvil, tablet y PC. <span class="hl">Siempre al día.</span></h2>
+  <p class="lead">Entra con tu email en el ordenador, la tablet o el móvil y encuentra los mismos datos. Se instala como una app y funciona aunque no haya cobertura.</p>
+  <div class="laptop big"><div class="screen"><img src="pc-home.png" alt=""></div><div class="base"></div></div>
   <div class="band">
     <div><b>Cuentas separadas</b><span>Cada nutricionista solo accede a sus propios clientes.</span></div>
     <div><b>Enlaces seguros</b><span>Imposibles de adivinar y anulables en un toque.</span></div>
     <div><b>Sin conexión</b><span>Trabaja sin cobertura; se sincroniza al volver la red.</span></div>
     <div><b>Tus datos son tuyos</b><span>Exporta una copia completa cuando quieras.</span></div>
   </div>
-  <div class="foot"><span><b>NutriLab</b> · by Javier Carbonell</span><span>5</span></div>
+  <h3 class="sub3">Instálala en un minuto, sin tiendas de apps</h3>
+  <div class="install">
+    <div><b>iPhone</b><span>Abre la dirección en Safari → Compartir → «Añadir a pantalla de inicio».</span></div>
+    <div><b>Android</b><span>Ábrela en Chrome → menú ⋮ → «Instalar aplicación».</span></div>
+    <div><b>PC o Mac</b><span>En Chrome o Edge, pulsa el icono de instalar en la barra de direcciones.</span></div>
+  </div>
+  <div class="foot"><span><b>NutriLab</b> · by Javier Carbonell</span><span>6</span></div>
 </section>
 
 <!-- ============================================================ 6 · PRECIO -->
@@ -287,8 +307,17 @@ h3 { font-size: 12.5pt; font-weight: 750; }
     </div>
   </div>
   <p class="note">* La generación con IA necesita una clave de API de Claude (Anthropic) del propio nutricionista, con coste aparte según el uso. NutriLab es una herramienta de apoyo: las dietas deben ser revisadas por un profesional de la nutrición.</p>
-  <div class="foot"><span><b>NutriLab</b> · by Javier Carbonell</span><span>6</span></div>
+  <div class="foot"><span><b>NutriLab</b> · by Javier Carbonell</span><span>7</span></div>
 </section>
 
+<script>
+// Plus Jakarta deja mucho aire antes de «.» y «,» en tamaños grandes: lo compensamos en los títulos.
+for (const h of document.querySelectorAll('h1, h2, .cta h3')) {
+  const walk = (n) => { for (const c of [...n.childNodes]) {
+    if (c.nodeType === 3 && /[.,]/.test(c.data)) { const f = document.createElement('span'); f.innerHTML = c.data.replace(/[.,]/g, (m) => `<span class="pn">${m}</span>`); c.replaceWith(...f.childNodes); }
+    else if (c.nodeType === 1) walk(c); } };
+  walk(h);
+}
+</script>
 </body>
 </html>
