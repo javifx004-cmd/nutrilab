@@ -13,6 +13,7 @@
   let acct = null;           // { user, profile }
   let gate = CLOUD ? 'loading' : null; // pantalla previa a la app: loading | auth | paywall | newpass
   let recovering = false;    // abierta desde el enlace de «recuperar contraseña»
+  let viewing = null;        // administrador viendo los datos de otro nutricionista (solo lectura)
   const AI_KEY = 'javinutricion-ai';
   const LISTS = ['clients', 'measures', 'plans', 'foods'];
   const ACTIVITY = [
@@ -60,6 +61,7 @@
     try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { toast('No se pudo guardar: el almacenamiento está lleno'); }
   }
   function save() {
+    if (viewing) { toast('Modo solo lectura: los cambios no se guardan'); return; }
     const now = Date.now(), seen = new Set();
     for (const k of LISTS) for (const x of S[k]) { seen.add(x.id); if (snap.get(x.id) !== sig(x)) x.updatedAt = now; }
     for (const id of snap.keys()) if (!seen.has(id)) S.deleted[id] = now;
@@ -203,6 +205,7 @@
     if (parts[0] === 'd' && S.plans.some((p) => p.id === parts[1])) return { view: 'plan', id: parts[1] };
     if (parts[0] === 'alimentos') return { view: 'foods' };
     if (parts[0] === 'ajustes') return { view: 'settings' };
+    if (parts[0] === 'admin' && isAdmin()) return { view: 'admin' };
     return { view: 'home' };
   }
   const go = (hash) => { if (location.hash === hash) render(); else location.hash = hash; };
@@ -212,7 +215,7 @@
     if (gate) return renderGate();
     document.body.classList.remove('gated');
     const r = route();
-    const tabOf = { home: '#/', clients: '#/clientes', client: '#/clientes', plan: '#/clientes', foods: '#/alimentos', settings: '#/ajustes' };
+    const tabOf = { home: '#/', clients: '#/clientes', client: '#/clientes', plan: '#/clientes', foods: '#/alimentos', settings: '#/ajustes', admin: '#/ajustes' };
     $$('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.nav === tabOf[r.view]));
     let title = '', sub = '', back = null, fab = null, html = '';
     if (r.view === 'home') { title = 'Inicio'; sub = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }); html = renderHome(); fab = ['Cliente', () => clientSheet()]; }
@@ -221,6 +224,8 @@
     if (r.view === 'plan') { const p = S.plans.find((x) => x.id === r.id); const c = clientById(p.clientId); title = p.name; sub = c ? c.name : ''; back = c ? `#/c/${c.id}/dietas` : '#/clientes'; html = renderPlan(p); }
     if (r.view === 'foods') { title = 'Alimentos'; sub = `${FOODS.length + S.foods.length} alimentos`; html = renderFoods(); fab = ['Alimento', () => foodSheet()]; }
     if (r.view === 'settings') { title = 'Ajustes'; sub = 'NutriLab by Javier Carbonell'; html = renderSettings(); }
+    if (r.view === 'admin') { title = 'Administración'; sub = 'Nutricionistas y suscripciones'; back = '#/ajustes'; html = renderAdmin(); fab = null; }
+    if (viewing) { fab = null; html = `<div class="note warn viewing"><span class="grow">👁 Viendo los datos de <b>${esc(viewing.name)}</b> · solo lectura</span><button class="btn sm" data-act="exit-view">Salir</button></div>` + html; }
     $('#topbar').firstElementChild.outerHTML = back ? `<button class="back" data-nav="${back}" aria-label="Atrás">${ICON.back}</button>` : '<img class="top-logo" src="icons/icon.svg" alt="" width="34" height="34">';
     $('#title').textContent = title;
     $('#subtitle').textContent = sub;
@@ -251,7 +256,7 @@
           <div><div class="v num">${S.plans.length}</div><div class="l">Dietas creadas</div></div></div>` : ''}
         <span class="leaf">${ICON.leaf}</span>
       </section>`;
-    const trialNote = CLOUD && acct?.profile && !['active', 'trialing', 'past_due'].includes(acct.profile.subscription_status) && cloud.hasAccess(acct.profile)
+    const trialNote = CLOUD && acct?.profile && !acct.profile.is_admin && !viewing && !['active', 'trialing', 'past_due'].includes(acct.profile.subscription_status) && cloud.hasAccess(acct.profile)
       ? `<div class="note" style="display:flex;gap:10px;align-items:center"><span class="grow">Prueba gratis: te quedan <b>${daysLeft(acct.profile.trial_ends_at)} días</b>.</span><button class="btn sm primary" data-act="checkout">Suscribirme</button></div>` : '';
     if (!S.clients.length) return hero + trialNote + `
       <div class="empty"><div class="art">${ICON.users}</div><h3>Empieza con tu primer cliente</h3>
@@ -1095,6 +1100,10 @@
     if (flagged) save();
   }
   async function downloadFile(meta) {
+    if (CLOUD && viewing) {
+      const blob = await cloud.downloadPhoto(viewing.owner, meta.id); // sin guardar copia en este dispositivo
+      return { blob, name: meta.name, type: meta.type };
+    }
     if (CLOUD) {
       const blob = await cloud.downloadPhoto(acct.user.id, meta.id);
       await Files.put(meta.id, blob, meta.name, meta.type);
@@ -1167,7 +1176,7 @@
   }
 
   async function cloudSync(manual = false) {
-    if (!acct) return;
+    if (!acct || viewing) return;
     if (syncing) { syncAgain = true; return; }
     if (!navigator.onLine) { sync.error = 'Sin conexión'; saveSync(); syncBadge(); return; }
     syncing = true; syncBadge();
@@ -1232,6 +1241,7 @@
   }
 
   async function logout() {
+    if (viewing) { S = viewing.prev; viewing = null; ver++; snapshot(); }
     if (!confirm('¿Cerrar sesión? Tus datos siguen guardados en tu cuenta y se borrarán de este dispositivo.')) return;
     await cloudSync().catch(() => {});
     if (sync.error && canWrite() && !confirm(`No se pudieron guardar los últimos cambios (${sync.error}). ¿Cerrar sesión igualmente?`)) return;
@@ -1246,6 +1256,13 @@
     const p = acct?.profile || {};
     const st = p.subscription_status;
     let pill = '', info = '';
+    if (p.is_admin) {
+      return `<div class="card"><div class="card-head"><h3>Tu cuenta</h3><span class="pill green">Administrador · gratis</span></div>
+        <p style="margin:0 0 4px;font-weight:700">${esc(p.full_name || acct?.user.email || '')}</p>
+        <p class="small muted" style="margin:0 0 12px">${esc(acct?.user.email || '')} · Acceso completo sin suscripción.</p>
+        <div class="row nowrap"><button class="btn primary grow" data-nav="#/admin">Panel de administración</button><button class="btn" data-act="logout">Cerrar sesión</button></div>
+        <p class="small muted" style="margin:12px 0 0">☁ ${sync.error ? '⚠ ' + esc(sync.error) : 'Tus datos se guardan en tu cuenta y en todos tus dispositivos.'}</p></div>`;
+    }
     if (st === 'active' || st === 'trialing') {
       pill = p.cancel_at_period_end ? '<span class="pill amber">Se cancela</span>' : '<span class="pill green">Suscripción activa</span>';
       info = p.current_period_end ? `${p.cancel_at_period_end ? 'Acceso hasta' : 'Se renueva el'} ${esc(fmtDate(p.current_period_end.slice(0, 10), true))}` : '';
@@ -1261,7 +1278,90 @@
         <button class="btn" data-act="logout">Cerrar sesión</button>
       </div>
       <p class="small muted" style="margin:12px 0 0">☁ ${sync.error ? '⚠ ' + esc(sync.error) : 'Tus clientes, mediciones, fotos y dietas se guardan en tu cuenta y en todos tus dispositivos.'}${sync.last ? ` · ${new Date(sync.last).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}` : ''}</p>
+      <div id="accessLog"></div>
     </div>`;
+  }
+
+  // ---------------------------------------------------------------- administración
+  const isAdmin = () => !!acct?.profile?.is_admin;
+  let adminRows = null;
+
+  function subState(r) {
+    if (r.is_admin) return ['Administrador', 'green'];
+    if (['active', 'trialing'].includes(r.subscription_status)) return [r.cancel_at_period_end ? 'Se cancela' : 'Activa', r.cancel_at_period_end ? 'amber' : 'green'];
+    if (r.subscription_status === 'past_due') return ['Impago', 'red'];
+    if (Date.parse(r.trial_ends_at) > Date.now()) return [`Prueba · ${daysLeft(r.trial_ends_at)} días`, 'blue'];
+    return ['Sin suscripción', 'mute'];
+  }
+
+  function renderAdmin() {
+    if (!adminRows) {
+      cloud.adminList().then((rows) => { adminRows = rows; if (route().view === 'admin') render(); }).catch((err) => toast(err.message));
+      return `<div class="ai-progress"><div class="spinner"></div><b>Cargando…</b></div>`;
+    }
+    const others = adminRows.filter((r) => !r.is_admin);
+    const paying = others.filter((r) => ['active', 'trialing'].includes(r.subscription_status));
+    const trial = others.filter((r) => !['active', 'trialing', 'past_due'].includes(r.subscription_status) && Date.parse(r.trial_ends_at) > Date.now());
+    const due = others.filter((r) => r.subscription_status === 'past_due');
+    const mrr = paying.filter((r) => !r.cancel_at_period_end).length * (num(CFG.priceAmount) || 0);
+    return `
+      <div class="stats two">
+        <div class="stat"><div class="l">Suscriptores activos</div><div class="v num">${paying.length}</div><div class="s">${others.length} registrado${others.length === 1 ? '' : 's'}</div></div>
+        <div class="stat"><div class="l">Ingresos al mes</div><div class="v num">${mrr ? fmt(mrr, 2) + ' €' : '—'}</div><div class="s">estimado, antes de comisiones</div></div>
+        <div class="stat"><div class="l">En prueba</div><div class="v num">${trial.length}</div></div>
+        <div class="stat"><div class="l">Impagos</div><div class="v num ${due.length ? 'neg' : ''}">${due.length}</div></div>
+      </div>
+      <div class="row between" style="margin:0 4px 10px"><span class="section-title" style="margin:0">Nutricionistas</span><button class="btn sm ghost" data-act="admin-reload">Actualizar</button></div>
+      ${others.length ? others.map((r) => { const [label, cls] = subState(r); return `
+        <div class="client-card" data-adminrow="${esc(r.id)}">${avatar({ name: r.full_name || r.email })}
+          <div class="body"><div class="name">${esc(r.full_name || r.email)}</div>
+            <div class="meta"><span class="pill ${cls}">${esc(label)}</span><span>${r.clients} cliente${r.clients === 1 ? '' : 's'}</span><span>· desde ${esc(fmtDate(String(r.created_at).slice(0, 10)))}</span></div></div></div>`; }).join('')
+        : `<div class="empty"><div class="art">${ICON.users}</div><h3>Aún no hay nutricionistas</h3><p>Cuando alguien se registre aparecerá aquí.</p></div>`}
+      <p class="small muted" style="text-align:center">Los cobros, facturas y reembolsos se gestionan en el panel de Stripe.</p>`;
+  }
+
+  function adminSheet(id) {
+    const r = adminRows.find((x) => x.id === id);
+    const [label, cls] = subState(r);
+    sheet(r.full_name || r.email, `
+      <div class="row" style="margin-bottom:12px"><span class="pill ${cls}">${esc(label)}</span></div>
+      <table class="t"><tbody>
+        <tr><th>Email</th><td>${esc(r.email)}</td></tr>
+        <tr><th>Registro</th><td>${esc(fmtDate(String(r.created_at).slice(0, 10), true))}</td></tr>
+        ${r.current_period_end ? `<tr><th>${r.cancel_at_period_end ? 'Acceso hasta' : 'Renueva'}</th><td>${esc(fmtDate(String(r.current_period_end).slice(0, 10), true))}</td></tr>` : ''}
+        <tr><th>Clientes</th><td>${r.clients}</td></tr><tr><th>Dietas</th><td>${r.plans}</td></tr>
+        <tr><th>Última actividad</th><td>${r.data_updated_at ? esc(new Date(r.data_updated_at).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })) : '—'}</td></tr>
+      </tbody></table>
+      <div class="menu" style="margin-top:14px">
+        <a class="btn" href="mailto:${esc(r.email)}">${ICON.mail}Escribirle un email</a>
+        <button class="btn" id="viewData">${ICON.users}Ver sus datos (solo lectura)</button>
+      </div>
+      <p class="small muted">Son datos de salud de sus clientes: entra solo por un motivo justificado (soporte, incidencia). Cada acceso queda registrado y el nutricionista lo verá en su app.</p>`);
+    $('#viewData').onclick = () => {
+      sheet('Motivo del acceso', `<form id="whyForm"><label class="f"><span>¿Por qué necesitas ver sus datos?</span><textarea name="reason" rows="3" required minlength="5" placeholder="Soporte: me ha escrito porque no le aparecen sus dietas"></textarea></label>
+        <button class="btn primary block">Ver en solo lectura</button></form>`);
+      $('#whyForm').onsubmit = async (e) => {
+        e.preventDefault();
+        try {
+          const data = await cloud.adminView(r.id, new FormData(e.target).get('reason'));
+          viewing = { owner: r.id, name: r.full_name || r.email, prev: S };
+          S = migrate({ ...blank(), ...data, settings: S.settings }); ver++;
+          closeSheet(); go('#/'); toast(`Viendo los datos de ${viewing.name}`);
+        } catch (err) { toast(err.message); }
+      };
+    };
+  }
+
+  function exitViewing() {
+    S = viewing.prev; viewing = null; ver++; snapshot();
+    go('#/admin'); toast('Has salido del modo solo lectura');
+  }
+
+  async function showAccessLog() {
+    const el = $('#accessLog');
+    if (!el || isAdmin()) return;
+    const log = await cloud.accessLog(acct.user.id);
+    if (log.length && $('#accessLog')) el.innerHTML = `<div class="form-sec">Accesos del soporte a tu cuenta</div>${log.map((l) => `<p class="small muted" style="margin:0 0 4px">${esc(new Date(l.at).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }))} · ${esc(l.reason)}</p>`).join('')}`;
   }
 
   // ---------------------------------------------------------------- pantallas previas: entrar, suscribirse
@@ -1389,6 +1489,7 @@
   // ================================================================ eventos
   let tmr;
   function afterRender(r) {
+    if (viewing) $$('#view input:not([type=search]), #view select, #view textarea').forEach((el) => { el.disabled = true; });
     $('#clientSearch')?.addEventListener('input', (e) => { clearTimeout(tmr); tmr = setTimeout(() => { ui.clientQuery = e.target.value; $('#clientList').innerHTML = clientList(); }, 120); });
     $('#foodSearch')?.addEventListener('input', (e) => { clearTimeout(tmr); tmr = setTimeout(() => { ui.foodQuery = e.target.value; $('#foodList').innerHTML = foodList(); }, 120); });
     $('#restore')?.addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) receiveData(f); });
@@ -1397,14 +1498,20 @@
       p.days[ui.day].meals[mi].items[ii].grams = num(el.value); save(); render();
     }));
     $$('img[data-photo]').forEach(async (img) => { const meta = allPhotos().find((x) => x.id === img.dataset.photo); const u = meta && await photoUrl(meta); if (u) img.src = u; img.onclick = () => viewPhoto(meta); });
+    if (r.view === 'settings' && CLOUD && acct) showAccessLog();
     if (r.view === 'settings' && navigator.storage?.estimate) navigator.storage.estimate().then(({ usage }) => { const el = $('#storageInfo'); if (el && usage) el.insertAdjacentText('beforeend', ` · ${fileSize(usage)} usados`); });
   }
 
   document.addEventListener('click', (e) => {
-    const t = e.target.closest('[data-nav], [data-act], [data-cfilter], [data-fcat], [data-metric], [data-measure], [data-day], [data-item], [data-food], [data-settheme], [data-auth]');
+    const t = e.target.closest('[data-nav], [data-act], [data-cfilter], [data-fcat], [data-metric], [data-measure], [data-day], [data-item], [data-food], [data-settheme], [data-auth], [data-adminrow]');
     if (!t || t.closest('.att')) return;
     const d = t.dataset;
     if (d.auth) { e.preventDefault(); ui.authMode = d.auth; return render(); }
+    if (d.adminrow) return adminSheet(d.adminrow);
+    // Solo lectura: se puede navegar, filtrar, imprimir y enviar, pero no abrir nada que modifique datos.
+    if (viewing && (d.measure || d.item || d.food || (d.act && !['exit-view', 'print-plan', 'share-plan', 'logout'].includes(d.act)))) {
+      e.preventDefault(); return toast('Modo solo lectura');
+    }
     if (gate && !['checkout', 'billing', 'recheck', 'logout', 'export'].includes(d.act)) return;
     if (t.tagName === 'A' && !d.act) return;
     if (d.nav) { e.preventDefault(); closeSheet(); return go(d.nav); }
@@ -1456,6 +1563,8 @@
       case 'billing': return goPay('billing-portal');
       case 'recheck': return afterPayment();
       case 'logout': return logout();
+      case 'exit-view': return exitViewing();
+      case 'admin-reload': adminRows = null; return render();
       case 'export': return download(`nutrilab-${today()}.json`, new Blob([JSON.stringify(shareable(), null, 1)], { type: 'application/json' }));
       case 'sync-on': return enableSync();
       case 'sync-now': return syncNow(true);

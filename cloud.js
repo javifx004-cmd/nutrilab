@@ -60,6 +60,7 @@ export async function profile(uid) {
 // Acceso: suscripción activa, unos días de margen si falla un cobro, o prueba gratuita vigente (igual que en la base de datos).
 export function hasAccess(p) {
   if (!p) return false;
+  if (p.is_admin) return true; // la cuenta del administrador es gratuita
   const now = Date.now();
   if (['active', 'trialing'].includes(p.subscription_status)) return true;
   if (p.subscription_status === 'past_due' && (!p.current_period_end || Date.parse(p.current_period_end) > now - 7 * 864e5)) return true;
@@ -105,4 +106,23 @@ export async function callFunction(name) {
     throw new Error(msg);
   }
   return data;
+}
+
+// ---------------------------------------------------------------- administración
+// Solo funcionan para la cuenta de administrador (lo comprueba la base de datos).
+export async function adminList() {
+  const { data, error } = await sb.rpc('admin_list');
+  if (error) throw new Error(error.code === '42501' ? 'Solo para administradores' : 'No se pudo cargar el panel');
+  return data || [];
+}
+// Ver los datos de un nutricionista en solo lectura: exige un motivo y queda registrado.
+export async function adminView(target, reason) {
+  const { data, error } = await sb.rpc('admin_view_workspace', { target, reason });
+  if (error) throw new Error(error.message || 'No se pudo abrir');
+  return data || {};
+}
+// Accesos del soporte a la cuenta de un nutricionista (los ve él mismo).
+export async function accessLog(uid) {
+  const { data, error } = await sb.from('admin_access_log').select('reason, at').eq('target_id', uid).order('at', { ascending: false }).limit(20);
+  return error ? [] : data || [];
 }

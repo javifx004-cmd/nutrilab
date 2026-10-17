@@ -26,6 +26,22 @@ Hazlo primero en **modo de prueba de Stripe** (sin cobros reales) y, cuando todo
    [`config.js`](config.js) (`supabaseUrl` y `supabaseAnonKey`). Esa clave es pública: está pensada para ir en la web.
    **Nunca** pongas en la web la clave `service_role` / `secret`.
 
+## 1 bis. Tu cuenta de administrador (gratis)
+
+1. En **SQL Editor** ejecuta también
+   [`supabase/migrations/20261018000000_admin.sql`](supabase/migrations/20261018000000_admin.sql).
+2. Cuando la app esté publicada (paso 5), **regístrate en ella con tu email** como cualquier usuario.
+3. En **SQL Editor** ejecuta, con tu email:
+
+   ```sql
+   update public.profiles set is_admin = true where email = 'TU_EMAIL';
+   ```
+
+Tu cuenta queda **gratis para siempre** y en Ajustes te aparece el **Panel de administración**: nutricionistas
+registrados, estado de cada suscripción, ingresos estimados al mes, y la opción de ver los datos de uno de ellos en
+**solo lectura** (por ejemplo, para darle soporte). Cada vez que entras en los datos de alguien tienes que escribir el
+motivo; queda registrado y esa persona lo ve en sus Ajustes. Desde la app nadie puede hacerse administrador.
+
 ## 2. Stripe: el cobro
 
 1. Crea una cuenta en <https://dashboard.stripe.com/register> (deja activado **Modo de prueba**).
@@ -92,7 +108,8 @@ Antes de abrirla al público, consulta con un asesor o abogado y prepara al meno
 
 - **Condiciones del servicio** y **política de privacidad** (pon los enlaces en `config.js`: `termsUrl`, `privacyUrl`).
 - Un **contrato de encargado del tratamiento** con cada nutricionista: ellos son responsables de los datos de sus
-  clientes y tú los alojas. Supabase y Stripe ofrecen sus propios contratos (DPA) para firmar desde sus paneles.
+  clientes y tú los alojas. Indica en él y en las condiciones que el **soporte puede acceder en solo lectura**
+  a sus datos cuando haga falta, que cada acceso queda registrado y que ellos pueden verlo. Supabase y Stripe ofrecen sus propios contratos (DPA) para firmar desde sus paneles.
 - **Facturación e IVA**: Stripe puede emitir facturas automáticamente (Facturación → Facturas) y calcular el IVA
   con Stripe Tax; confirma con tu gestor cómo declararlo.
 - **Borrar una cuenta** cuando alguien lo pida: Supabase → Authentication → Users → eliminar usuario
