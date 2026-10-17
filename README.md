@@ -1,6 +1,6 @@
-# NutriLab · by Javier Carbonell
+# NutriLab
 
-App web instalable (PWA) para nutricionistas, **by Javier Carbonell**.
+App web instalable (PWA) para nutricionistas.
 
 ## Qué hace
 

@@ -1,4 +1,4 @@
-/* NutriLab – clientes, dietas (manuales o con IA) y progreso · by Javier Carbonell
+/* NutriLab – clientes, dietas (manuales o con IA) y progreso
  * (las claves internas de almacenamiento conservan el nombre «javinutricion» para no perder datos) */
 (() => {
   'use strict';
@@ -321,7 +321,7 @@
     if (r.view === 'client') { const c = clientById(r.id); title = 'Cliente'; sub = c.name; back = '#/clientes'; html = renderClient(c, r.sub); }
     if (r.view === 'plan') { const p = S.plans.find((x) => x.id === r.id); const c = clientById(p.clientId); title = p.name; sub = c ? c.name : ''; back = c ? `#/c/${c.id}/dietas` : '#/clientes'; html = renderPlan(p); }
     if (r.view === 'foods') { title = 'Alimentos'; sub = `${FOODS.length + S.foods.length} alimentos`; html = renderFoods(); fab = ['Alimento', () => foodSheet()]; }
-    if (r.view === 'settings') { title = 'Ajustes'; sub = 'NutriLab by Javier Carbonell'; html = renderSettings(); }
+    if (r.view === 'settings') { title = 'Ajustes'; sub = 'NutriLab'; html = renderSettings(); }
     if (r.view === 'admin') { title = 'Administración'; sub = 'Nutricionistas y suscripciones'; back = '#/ajustes'; html = renderAdmin(); fab = null; }
     if (viewing) { fab = null; html = `<div class="note warn viewing"><span class="grow">👁 Viendo los datos de <b>${esc(viewing.name)}</b> · solo lectura</span><button class="btn sm" data-act="exit-view">Salir</button></div>` + html; }
     $('#topbar').firstElementChild.outerHTML = back ? `<button class="back" data-nav="${back}" aria-label="Atrás">${ICON.back}</button>` : '<img class="top-logo" src="icons/icon.svg" alt="" width="34" height="34">';
@@ -344,10 +344,12 @@
     const week = addDays(today(), 7);
     const reviews = active.filter((c) => c.nextReview).sort((a, b) => a.nextReview.localeCompare(b.nextReview));
     const thisWeek = reviews.filter((c) => c.nextReview <= week);
+    // Saludo con el nombre de la cuenta (cada nutricionista ve el suyo)
+    const firstName = (acct?.profile?.full_name || '').trim().split(/\s+/)[0];
     const hero = `
       <section class="hero">
-        <div class="who"><img src="icons/icon.svg" alt="" width="46" height="46"><div><div class="brand">Nutri<span>Lab</span></div><div class="by">by Javier Carbonell</div></div></div>
-        <div class="hello">${hello}, Javi 👋${thisWeek.length ? ` Tienes <b>${thisWeek.length}</b> revisi${thisWeek.length === 1 ? 'ón' : 'ones'} esta semana.` : S.clients.length ? ' Todo al día.' : ''}</div>
+        <div class="who"><img src="icons/icon.svg" alt="" width="46" height="46"><div><div class="brand">Nutri<span>Lab</span></div><div class="by">La app para nutricionistas</div></div></div>
+        <div class="hello">${hello}${firstName ? ', ' + esc(firstName) : ''} 👋${thisWeek.length ? ` Tienes <b>${thisWeek.length}</b> revisi${thisWeek.length === 1 ? 'ón' : 'ones'} esta semana.` : S.clients.length ? ' Todo al día.' : ''}</div>
         ${S.clients.length ? `<div class="glass">
           <div><div class="v num">${active.length}</div><div class="l">Clientes activos</div></div>
           <div><div class="v num">${thisWeek.length}</div><div class="l">Revisiones 7 días</div></div>
@@ -556,7 +558,7 @@
       ${ms.length > 1 ? `<div class="card"><h3>Tu progreso</h3>${lineChart(ms, { target: num(d.client.targetWeight), unit: 'kg' })}</div>` : ''}
       <div class="card"><h3>Tenlo siempre a mano</h3><p class="small muted" style="margin:0"><b>iPhone:</b> Safari → Compartir → «Añadir a pantalla de inicio».<br><b>Android:</b> Chrome → ⋮ → «Añadir a pantalla de inicio».</p>
         ${d.nutritionist?.email ? `<a class="btn block" style="margin-top:12px" href="mailto:${esc(d.nutritionist.email)}">${ICON.mail}Escribir a ${esc((d.nutritionist.name || 'tu nutricionista').split(' ')[0])}</a>` : ''}</div>
-      <p class="small muted" style="text-align:center">NutriLab · by Javier Carbonell<br><a href="#" data-act="portal-exit">¿Eres nutricionista? Entra aquí</a></p>`;
+      <p class="small muted" style="text-align:center">NutriLab<br><a href="#" data-act="portal-exit">¿Eres nutricionista? Entra aquí</a></p>`;
   }
 
   // Gráfica de línea simple (SVG) con línea de objetivo opcional.
@@ -909,7 +911,7 @@
   // ---------------------------------------------------------------- PDF y envío
   function planText(p) {
     const c = clientById(p.clientId);
-    const lines = [`🥗 ${p.name}${c ? ' · ' + c.name : ''}`, 'NutriLab · by Javier Carbonell', ''];
+    const lines = [`🥗 ${p.name}${c ? ' · ' + c.name : ''}`, 'NutriLab', ''];
     for (const d of p.days) {
       if (p.days.length > 1) lines.push(`📅 ${d.name.toUpperCase()}`);
       for (const m of d.meals) {
@@ -928,7 +930,7 @@
     const c = client || clientById(p.clientId), t = tgt || (c && !client ? targets(c) : {});
     const row = (cells, cls = '') => `<tr class="${cls}">${cells.map((x, i) => `<td class="${i ? 'r' : ''}">${x}</td>`).join('')}</tr>`;
     $('#print').innerHTML = `
-      <div class="ph"><img src="icons/icon.svg" alt=""><div><div class="b">Nutri<span style="color:#65a30d">Lab</span></div><div>by Javier Carbonell</div></div>
+      <div class="ph"><img src="icons/icon.svg" alt=""><div><div class="b">Nutri<span style="color:#65a30d">Lab</span></div><div>Plan de alimentación</div></div>
         <div class="c"><b>${esc(c?.name || '')}</b><br>${esc(p.name)}<br>${esc(fmtDate(today(), true))}</div></div>
       ${t.kcal ? `<div class="notes">Objetivo diario: <b>${fmt(t.kcal, 0)} kcal</b> · proteínas ${fmt(t.p, 0)} g · hidratos ${fmt(t.c, 0)} g · grasas ${fmt(t.f, 0)} g</div>` : ''}
       ${p.notes ? `<div class="notes">${esc(p.notes)}</div>` : ''}
@@ -939,7 +941,7 @@
           ${row(['Total', '', fmt(mm.kcal, 0), fmt(mm.p, 0), fmt(mm.c, 0), fmt(mm.f, 0)], 'tot')}</tbody></table>
           ${m.recipe ? `<p style="font-size:10pt;color:#555;margin:4px 0 0"><i>${esc(m.recipe)}</i></p>` : ''}`; }).join('')}
         <p style="text-align:right;font-weight:700">Total del día: ${fmt(dayMacros(d).kcal, 0)} kcal</p></div>`).join('')}
-      <div class="foot">NutriLab by Javier Carbonell · Plan personalizado. Consulta cualquier duda antes de hacer cambios.</div>`;
+      <div class="foot">NutriLab · Plan personalizado. Consulta cualquier duda antes de hacer cambios.</div>`;
     setTimeout(() => window.print(), 50);
   }
 
@@ -1106,7 +1108,7 @@
         <p class="small muted" id="storageInfo" style="margin:10px 0 0">${S.clients.length} clientes · ${S.measures.length} mediciones · ${S.plans.length} dietas</p>
       </div>
       ${CLOUD ? '' : `<button class="btn danger block" data-act="wipe">${ICON.trash}Borrar todos los datos de este dispositivo</button>`}
-      <p class="small muted" style="text-align:center;margin-top:18px">Nutri<b style="color:var(--brand-2)">Lab</b> · by Javier Carbonell</p>`;
+      <p class="small muted" style="text-align:center;margin-top:18px">Nutri<b style="color:var(--brand-2)">Lab</b> · La app para nutricionistas</p>`;
   }
 
   // ================================================================ cifrado y compartir
@@ -1541,7 +1543,7 @@
   }
 
   // ---------------------------------------------------------------- pantallas previas: entrar, suscribirse
-  const BRAND_HERO = `<section class="hero gate-hero"><div class="who"><img src="icons/icon.svg" alt="" width="50" height="50"><div><div class="brand">Nutri<span>Lab</span></div><div class="by">by Javier Carbonell</div></div></div>
+  const BRAND_HERO = `<section class="hero gate-hero"><div class="who"><img src="icons/icon.svg" alt="" width="50" height="50"><div><div class="brand">Nutri<span>Lab</span></div><div class="by">La app para nutricionistas</div></div></div>
     <div class="hello">La app para nutricionistas: clientes, dietas con IA y seguimiento del progreso.</div><span class="leaf">${ICON.leaf}</span></section>`;
 
   function renderGate() {
