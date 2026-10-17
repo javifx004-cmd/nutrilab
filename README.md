@@ -1,4 +1,4 @@
-# Javi Nutrición
+# NutriLab · by Javier Carbonell
 
 App web instalable (PWA) para nutricionistas, **by Javier Carbonell**.
 
@@ -17,7 +17,7 @@ App web instalable (PWA) para nutricionistas, **by Javier Carbonell**.
 - **Entrega al cliente**: PDF con tu marca, o texto por WhatsApp.
 - **Sincronización** entre PC, móvil y tablet (gist secreto de GitHub, cifrado con tu contraseña) y copia por archivo.
 - Funciona sin conexión (salvo la IA y la sincronización). Tema claro, oscuro o automático.
-- Diseño: tipografía Plus Jakarta Sans (licencia OFL, en `vendor/fonts`), icono propio con hoja y «J», modo claro y oscuro.
+- Diseño: tipografía Plus Jakarta Sans (licencia OFL, en `vendor/fonts`), icono propio (matraz con hoja), modo claro y oscuro.
 
 ## Instalar
 

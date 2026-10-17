@@ -1,4 +1,5 @@
-/* Javi Nutrición – clientes, dietas (manuales o con IA) y progreso · by Javier Carbonell */
+/* NutriLab – clientes, dietas (manuales o con IA) y progreso · by Javier Carbonell
+ * (las claves internas de almacenamiento conservan el nombre «javinutricion» para no perder datos) */
 (() => {
   'use strict';
 
@@ -209,7 +210,7 @@
     if (r.view === 'client') { const c = clientById(r.id); title = 'Cliente'; sub = c.name; back = '#/clientes'; html = renderClient(c, r.sub); }
     if (r.view === 'plan') { const p = S.plans.find((x) => x.id === r.id); const c = clientById(p.clientId); title = p.name; sub = c ? c.name : ''; back = c ? `#/c/${c.id}/dietas` : '#/clientes'; html = renderPlan(p); }
     if (r.view === 'foods') { title = 'Alimentos'; sub = `${FOODS.length + S.foods.length} alimentos`; html = renderFoods(); fab = ['Alimento', () => foodSheet()]; }
-    if (r.view === 'settings') { title = 'Ajustes'; sub = 'Javi Nutrición'; html = renderSettings(); }
+    if (r.view === 'settings') { title = 'Ajustes'; sub = 'NutriLab by Javier Carbonell'; html = renderSettings(); }
     $('#topbar').firstElementChild.outerHTML = back ? `<button class="back" data-nav="${back}" aria-label="Atrás">${ICON.back}</button>` : '<img class="top-logo" src="icons/icon.svg" alt="" width="34" height="34">';
     $('#title').textContent = title;
     $('#subtitle').textContent = sub;
@@ -232,7 +233,7 @@
     const thisWeek = reviews.filter((c) => c.nextReview <= week);
     const hero = `
       <section class="hero">
-        <div class="who"><img src="icons/icon.svg" alt="" width="46" height="46"><div><div class="brand">Javi Nutrición</div><div class="by">by Javier Carbonell</div></div></div>
+        <div class="who"><img src="icons/icon.svg" alt="" width="46" height="46"><div><div class="brand">Nutri<span>Lab</span></div><div class="by">by Javier Carbonell</div></div></div>
         <div class="hello">${hello}, Javi 👋${thisWeek.length ? ` Tienes <b>${thisWeek.length}</b> revisi${thisWeek.length === 1 ? 'ón' : 'ones'} esta semana.` : S.clients.length ? ' Todo al día.' : ''}</div>
         ${S.clients.length ? `<div class="glass">
           <div><div class="v num">${active.length}</div><div class="l">Clientes activos</div></div>
@@ -715,7 +716,7 @@
   // ---------------------------------------------------------------- PDF y envío
   function planText(p) {
     const c = clientById(p.clientId);
-    const lines = [`🥗 ${p.name}${c ? ' · ' + c.name : ''}`, 'Javi Nutrición', ''];
+    const lines = [`🥗 ${p.name}${c ? ' · ' + c.name : ''}`, 'NutriLab · by Javier Carbonell', ''];
     for (const d of p.days) {
       if (p.days.length > 1) lines.push(`📅 ${d.name.toUpperCase()}`);
       for (const m of d.meals) {
@@ -734,7 +735,7 @@
     const c = clientById(p.clientId), t = c ? targets(c) : {};
     const row = (cells, cls = '') => `<tr class="${cls}">${cells.map((x, i) => `<td class="${i ? 'r' : ''}">${x}</td>`).join('')}</tr>`;
     $('#print').innerHTML = `
-      <div class="ph"><img src="icons/icon.svg" alt=""><div><div class="b">Javi Nutrición</div><div>by Javier Carbonell</div></div>
+      <div class="ph"><img src="icons/icon.svg" alt=""><div><div class="b">Nutri<span style="color:#65a30d">Lab</span></div><div>by Javier Carbonell</div></div>
         <div class="c"><b>${esc(c?.name || '')}</b><br>${esc(p.name)}<br>${esc(fmtDate(today(), true))}</div></div>
       ${t.kcal ? `<div class="notes">Objetivo diario: <b>${fmt(t.kcal, 0)} kcal</b> · proteínas ${fmt(t.p, 0)} g · hidratos ${fmt(t.c, 0)} g · grasas ${fmt(t.f, 0)} g</div>` : ''}
       ${p.notes ? `<div class="notes">${esc(p.notes)}</div>` : ''}
@@ -745,7 +746,7 @@
           ${row(['Total', '', fmt(mm.kcal, 0), fmt(mm.p, 0), fmt(mm.c, 0), fmt(mm.f, 0)], 'tot')}</tbody></table>
           ${m.recipe ? `<p style="font-size:10pt;color:#555;margin:4px 0 0"><i>${esc(m.recipe)}</i></p>` : ''}`; }).join('')}
         <p style="text-align:right;font-weight:700">Total del día: ${fmt(dayMacros(d).kcal, 0)} kcal</p></div>`).join('')}
-      <div class="foot">Javi Nutrición · Plan personalizado. Consulta cualquier duda antes de hacer cambios.</div>`;
+      <div class="foot">NutriLab by Javier Carbonell · Plan personalizado. Consulta cualquier duda antes de hacer cambios.</div>`;
     setTimeout(() => window.print(), 50);
   }
 
@@ -890,7 +891,7 @@
           <p class="small muted">Clientes, mediciones, fotos y dietas se suben cifrados a tu GitHub y llegan a tus otros dispositivos al abrir la app.</p>
           <div class="row"><button class="btn primary grow" data-act="sync-now">Sincronizar ahora</button><button class="btn grow" data-act="sync-off">Desconectar</button></div>` : `
           <p class="small muted">Hazlo una vez en cada dispositivo con el <b>mismo token</b> y la <b>misma contraseña</b>:</p>
-          <ol class="steps"><li><a href="https://github.com/settings/tokens/new?scopes=gist&description=Javi%20Nutricion" target="_blank" rel="noopener">Crea un token de GitHub</a> (permiso <b>gist</b> ya marcado, «No expiration»).</li><li>Pégalo aquí y elige una contraseña.</li></ol>
+          <ol class="steps"><li><a href="https://github.com/settings/tokens/new?scopes=gist&description=NutriLab" target="_blank" rel="noopener">Crea un token de GitHub</a> (permiso <b>gist</b> ya marcado, «No expiration»).</li><li>Pégalo aquí y elige una contraseña.</li></ol>
           <label class="f"><span>Token de GitHub</span><input id="syncToken" type="password" autocomplete="off" placeholder="ghp_…"></label>
           <label class="f"><span>Contraseña de sincronización</span><input id="syncPass" type="password" autocomplete="new-password" placeholder="Mínimo 6 caracteres"></label>
           <button class="btn primary block" data-act="sync-on">Activar sincronización</button>`}
@@ -911,7 +912,7 @@
         <p class="small muted" id="storageInfo" style="margin:10px 0 0">${S.clients.length} clientes · ${S.measures.length} mediciones · ${S.plans.length} dietas</p>
       </div>
       <button class="btn danger block" data-act="wipe">${ICON.trash}Borrar todos los datos de este dispositivo</button>
-      <p class="small muted" style="text-align:center;margin-top:18px">Javi Nutrición · by Javier Carbonell</p>`;
+      <p class="small muted" style="text-align:center;margin-top:18px">Nutri<b style="color:var(--brand-2)">Lab</b> · by Javier Carbonell</p>`;
   }
 
   // ================================================================ cifrado y compartir
@@ -954,9 +955,9 @@
     data.files = {};
     for (const ph of allPhotos()) { const rec = await Files.get(ph.id).catch(() => null); if (rec) data.files[ph.id] = { name: rec.name, type: rec.type, data: b64(await rec.blob.arrayBuffer()) }; }
     const payload = pass ? await encryptData(data, pass) : { app: 'javinutricion', format: 1, data };
-    const name = `javi-nutricion-${today()}.json`;
+    const name = `nutrilab-${today()}.json`;
     const file = new File([JSON.stringify(payload)], name, { type: 'application/json' });
-    if (navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file], title: 'Datos Javi Nutrición' }); return; } catch (err) { if (err.name === 'AbortError') return; } }
+    if (navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file], title: 'Datos NutriLab' }); return; } catch (err) { if (err.name === 'AbortError') return; } }
     download(name, file);
   }
   async function receiveData(file) {

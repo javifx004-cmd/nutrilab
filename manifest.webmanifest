@@ -1,7 +1,7 @@
 {
-  "name": "Javi Nutrición",
-  "short_name": "JaviNutri",
-  "description": "Clientes, dietas (manuales o con IA) y seguimiento del progreso. By Javier Carbonell.",
+  "name": "NutriLab by Javier Carbonell",
+  "short_name": "NutriLab",
+  "description": "NutriLab: clientes, dietas (manuales o con IA) y seguimiento del progreso. By Javier Carbonell.",
   "lang": "es",
   "start_url": "./",
   "scope": "./",
