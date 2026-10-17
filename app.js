@@ -4,7 +4,15 @@
   'use strict';
 
   // ================================================================ estado
-  const KEY = 'javinutricion-v1';
+  const BASE_KEY = 'javinutricion-v1';
+  let KEY = BASE_KEY;
+  // Modo nube (cuentas + suscripción) si config.js tiene los datos de Supabase; si no, todo queda en este dispositivo.
+  const CFG = window.NUTRILAB_CONFIG || {};
+  const CLOUD = !!(CFG.supabaseUrl && CFG.supabaseAnonKey);
+  let cloud = null;          // módulo cloud.js
+  let acct = null;           // { user, profile }
+  let gate = CLOUD ? 'loading' : null; // pantalla previa a la app: loading | auth | paywall | newpass
+  let recovering = false;    // abierta desde el enlace de «recuperar contraseña»
   const AI_KEY = 'javinutricion-ai';
   const LISTS = ['clients', 'measures', 'plans', 'foods'];
   const ACTIVITY = [
@@ -27,7 +35,7 @@
   const STYLES = ['Mediterránea', 'Alta en proteína', 'Vegetariana', 'Vegana', 'Sin gluten', 'Sin lactosa', 'Baja en hidratos', 'Ayuno intermitente 16:8', 'Económica'];
 
   const blank = () => ({ clients: [], measures: [], plans: [], foods: [], deleted: {}, settings: { theme: 'auto' } });
-  let S = load();
+  let S = CLOUD ? blank() : load();
   const ui = { clientQuery: '', clientFilter: 'activo', foodQuery: '', foodCat: 'Todas', metric: 'weight', day: 0 };
 
   function load() {
@@ -201,6 +209,8 @@
   window.addEventListener('hashchange', () => { closeSheet(); render(); window.scrollTo(0, 0); });
 
   function render() {
+    if (gate) return renderGate();
+    document.body.classList.remove('gated');
     const r = route();
     const tabOf = { home: '#/', clients: '#/clientes', client: '#/clientes', plan: '#/clientes', foods: '#/alimentos', settings: '#/ajustes' };
     $$('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.nav === tabOf[r.view]));
@@ -241,13 +251,15 @@
           <div><div class="v num">${S.plans.length}</div><div class="l">Dietas creadas</div></div></div>` : ''}
         <span class="leaf">${ICON.leaf}</span>
       </section>`;
-    if (!S.clients.length) return hero + `
+    const trialNote = CLOUD && acct?.profile && !['active', 'trialing', 'past_due'].includes(acct.profile.subscription_status) && cloud.hasAccess(acct.profile)
+      ? `<div class="note" style="display:flex;gap:10px;align-items:center"><span class="grow">Prueba gratis: te quedan <b>${daysLeft(acct.profile.trial_ends_at)} días</b>.</span><button class="btn sm primary" data-act="checkout">Suscribirme</button></div>` : '';
+    if (!S.clients.length) return hero + trialNote + `
       <div class="empty"><div class="art">${ICON.users}</div><h3>Empieza con tu primer cliente</h3>
         <p>Guarda sus datos, calcula sus calorías y macros, crea dietas a mano o con IA y sigue su progreso con gráficas y fotos.</p>
         <div class="row" style="justify-content:center"><button class="btn primary" data-act="new-client">${ICON.plus}Añadir cliente</button><button class="btn" data-act="demo">Ver ejemplo</button></div></div>`;
 
     const recent = S.measures.filter((m) => clientById(m.clientId)).sort((a, b) => b.date.localeCompare(a.date) || (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 5);
-    return hero + `
+    return hero + trialNote + `
       <div class="card"><div class="card-head"><h3>Próximas revisiones</h3><button class="btn sm ghost" data-nav="#/clientes">Ver clientes</button></div>
         ${reviews.length ? reviews.slice(0, 6).map((c) => `
           <div class="list-item" data-nav="#/c/${c.id}">${avatar(c)}
@@ -878,14 +890,7 @@
   // ================================================================ AJUSTES
   function renderSettings() {
     return `
-      <div class="card"><h3>${ICON.ai.replace('<svg', '<svg width="17" height="17" style="vertical-align:-3px"')} Inteligencia artificial</h3>
-        <p class="small muted">Crea y modifica dietas con Claude (Anthropic). Necesitas una clave de API propia; cada dieta cuesta unos céntimos. La clave se guarda solo en este dispositivo.</p>
-        <label class="f"><span>Clave de API</span><input id="aiKey" type="password" autocomplete="off" placeholder="sk-ant-…" value="${esc(aiCfg.apiKey)}"></label>
-        <label class="f"><span>Modelo</span><select id="aiModel">${opt([['claude-opus-5-5', 'Claude Opus 5.5 (recomendado)'], ['claude-sonnet-5-5', 'Claude Sonnet 5.5 (más rápido)'], ['claude-haiku-5-5', 'Claude Haiku 5.5 (más económico)']], aiCfg.model || 'claude-opus-5-5')}</select></label>
-        <div class="row"><button class="btn primary grow" data-act="ai-save">Guardar</button><a class="btn grow" href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Conseguir clave</a></div>
-      </div>
-
-      <div class="card"><h3>☁ Sincronización (PC, móvil, tablet…)</h3>
+      ${CLOUD ? accountCard() : `<div class="card"><h3>☁ Sincronización (PC, móvil, tablet…)</h3>
         ${syncOn() ? `
           <p class="small"><span class="pill ${sync.error ? 'red' : 'green'}">${sync.error ? '⚠ ' + esc(sync.error) : '✓ Activada'}</span>${sync.last ? ` <span class="muted">· ${new Date(sync.last).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}</span>` : ''}</p>
           <p class="small muted">Clientes, mediciones, fotos y dietas se suben cifrados a tu GitHub y llegan a tus otros dispositivos al abrir la app.</p>
@@ -895,7 +900,15 @@
           <label class="f"><span>Token de GitHub</span><input id="syncToken" type="password" autocomplete="off" placeholder="ghp_…"></label>
           <label class="f"><span>Contraseña de sincronización</span><input id="syncPass" type="password" autocomplete="new-password" placeholder="Mínimo 6 caracteres"></label>
           <button class="btn primary block" data-act="sync-on">Activar sincronización</button>`}
+      </div>`}
+
+      <div class="card"><h3>${ICON.ai.replace('<svg', '<svg width="17" height="17" style="vertical-align:-3px"')} Inteligencia artificial</h3>
+        <p class="small muted">Crea y modifica dietas con Claude (Anthropic). Necesitas una clave de API propia; cada dieta cuesta unos céntimos. La clave se guarda solo en este dispositivo.</p>
+        <label class="f"><span>Clave de API</span><input id="aiKey" type="password" autocomplete="off" placeholder="sk-ant-…" value="${esc(aiCfg.apiKey)}"></label>
+        <label class="f"><span>Modelo</span><select id="aiModel">${opt([['claude-opus-5-5', 'Claude Opus 5.5 (recomendado)'], ['claude-sonnet-5-5', 'Claude Sonnet 5.5 (más rápido)'], ['claude-haiku-5-5', 'Claude Haiku 5.5 (más económico)']], aiCfg.model || 'claude-opus-5-5')}</select></label>
+        <div class="row"><button class="btn primary grow" data-act="ai-save">Guardar</button><a class="btn grow" href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Conseguir clave</a></div>
       </div>
+
 
       <div class="card"><h3>Copia por archivo</h3>
         <p class="small muted">Sin nube: envía un archivo cifrado (WhatsApp, AirDrop, correo…) y ábrelo en el otro dispositivo con «Recibir». Se combina con lo que haya.</p>
@@ -911,7 +924,7 @@
         <p class="small muted" style="margin:0"><b>iPhone:</b> Safari → Compartir → «Añadir a pantalla de inicio».<br><b>Android:</b> Chrome → ⋮ → «Instalar aplicación».<br><b>PC:</b> Chrome / Edge → icono de instalar en la barra de direcciones.</p>
         <p class="small muted" id="storageInfo" style="margin:10px 0 0">${S.clients.length} clientes · ${S.measures.length} mediciones · ${S.plans.length} dietas</p>
       </div>
-      <button class="btn danger block" data-act="wipe">${ICON.trash}Borrar todos los datos de este dispositivo</button>
+      ${CLOUD ? '' : `<button class="btn danger block" data-act="wipe">${ICON.trash}Borrar todos los datos de este dispositivo</button>`}
       <p class="small muted" style="text-align:center;margin-top:18px">Nutri<b style="color:var(--brand-2)">Lab</b> · by Javier Carbonell</p>`;
   }
 
@@ -992,12 +1005,12 @@
   }
 
   // ================================================================ sincronización (gist secreto cifrado)
-  const SYNC_KEY = 'javinutricion-sync';
+  let SYNC_KEY = 'javinutricion-sync';
   const GIST_DESC = 'javinutricion-sync', GIST_FILE = 'javinutricion.json', FILES_DESC = 'javinutricion-files';
   let sync = (() => { try { return JSON.parse(localStorage.getItem(SYNC_KEY)) || {}; } catch { return {}; } })();
   let syncing = false, syncAgain = false, syncTimer = null;
   const saveSync = () => { try { localStorage.setItem(SYNC_KEY, JSON.stringify(sync)); } catch { /* no-op */ } };
-  const syncOn = () => !!(sync.token && sync.pass);
+  const syncOn = () => (CLOUD ? !!acct : !!(sync.token && sync.pass));
   const stateSig = (d) => JSON.stringify([LISTS.map((k) => (d[k] || []).map(sig).sort()), Object.keys(d.deleted || {}).sort()]);
   function scheduleSync() { if (!syncOn()) return; clearTimeout(syncTimer); syncTimer = setTimeout(() => syncNow(), 1500); }
 
@@ -1020,6 +1033,7 @@
     return null;
   }
   async function syncNow(manual = false) {
+    if (CLOUD) return cloudSync(manual);
     if (!syncOn()) return;
     if (syncing) { syncAgain = true; return; }
     if (!navigator.onLine) { sync.error = 'Sin conexión'; saveSync(); syncBadge(); return; }
@@ -1081,6 +1095,11 @@
     if (flagged) save();
   }
   async function downloadFile(meta) {
+    if (CLOUD) {
+      const blob = await cloud.downloadPhoto(acct.user.id, meta.id);
+      await Files.put(meta.id, blob, meta.name, meta.type);
+      return { blob, name: meta.name, type: meta.type };
+    }
     if (!sync.filesId) sync.filesId = await findGist(FILES_DESC);
     if (!sync.filesId) throw new Error('No se encontró la foto en la nube');
     const g = await gh(`/gists/${sync.filesId}`);
@@ -1103,6 +1122,227 @@
     sync = { token, pass }; saveSync(); toast('Conectando…');
     await syncNow(true);
     if (sync.error) { sync = {}; saveSync(); syncBadge(); render(); }
+  }
+
+  // ================================================================ nube: cuenta, suscripción y sincronización
+  const daysLeft = (iso) => Math.max(0, Math.ceil((Date.parse(iso) - Date.now()) / 864e5));
+  const canWrite = () => !!acct && cloud.hasAccess(acct.profile);
+
+  function useAccount(user) {
+    KEY = `${BASE_KEY}:${user.id}`;
+    SYNC_KEY = `javinutricion-sync:${user.id}`;
+    S = load(); snapshot(); ver++;
+    sync = (() => { try { return JSON.parse(localStorage.getItem(SYNC_KEY)) || {}; } catch { return {}; } })();
+  }
+
+  async function refreshProfile() {
+    try { acct.profile = await cloud.profile(acct.user.id); sync.profile = acct.profile; saveSync(); } catch { acct.profile = sync.profile || acct.profile; }
+    return acct.profile;
+  }
+
+  async function enter(user) {
+    if (acct?.user.id === user.id) return;
+    acct = { user, profile: null };
+    useAccount(user);
+    acct.profile = sync.profile || null;
+    gate = recovering ? 'newpass' : acct.profile ? (cloud.hasAccess(acct.profile) ? null : 'paywall') : 'loading';
+    render();
+    await refreshProfile();
+    gate = recovering ? 'newpass' : cloud.hasAccess(acct.profile) ? null : 'paywall';
+    render(); syncBadge();
+    await cloudSync();
+    if (!recovering) offerLegacyImport();
+  }
+
+  // Datos guardados en este dispositivo antes de tener cuenta: se ofrecen una vez para subirlos a la cuenta.
+  function offerLegacyImport() {
+    let legacy = null;
+    try { legacy = JSON.parse(localStorage.getItem(BASE_KEY) || 'null'); } catch { /* no-op */ }
+    if (!legacy?.clients?.length || sync.legacyAsked) return;
+    sync.legacyAsked = true; saveSync();
+    if (!confirm(`Hay ${legacy.clients.length} cliente(s) guardados en este dispositivo de antes de crear tu cuenta. ¿Añadirlos a tu cuenta?`)) return;
+    mergeData(migrate({ ...blank(), ...legacy }));
+    localStorage.removeItem(BASE_KEY);
+    render(); scheduleSync(); toast('Datos añadidos a tu cuenta');
+  }
+
+  async function cloudSync(manual = false) {
+    if (!acct) return;
+    if (syncing) { syncAgain = true; return; }
+    if (!navigator.onLine) { sync.error = 'Sin conexión'; saveSync(); syncBadge(); return; }
+    syncing = true; syncBadge();
+    try {
+      const uid = acct.user.id;
+      let changed = false;
+      const stamp = await cloud.stamp(uid);
+      let remoteSig = null;
+      if (stamp && stamp !== sync.cloudStamp) {
+        const row = await cloud.pull(uid);
+        const remote = migrate({ ...blank(), ...(row?.data || {}) });
+        remoteSig = stateSig(remote);
+        const before = stateSig(S); mergeData(remote); changed = stateSig(S) !== before;
+        sync.cloudStamp = row?.updated_at || stamp;
+      }
+      const mine = stateSig(S);
+      const dirty = remoteSig != null ? remoteSig !== mine : !stamp || mine !== sync.cloudSig;
+      if (dirty && canWrite()) { sync.cloudStamp = await cloud.push(uid, shareable()); }
+      if (!dirty || canWrite()) sync.cloudSig = mine;
+      if (canWrite()) await cloudFiles(uid);
+      sync.last = Date.now(); sync.error = canWrite() || !dirty ? '' : 'Suscripción inactiva: cambios solo en este dispositivo'; saveSync();
+      if (changed || route().view === 'settings') render();
+      if (manual) toast(sync.error || 'Sincronizado ✓');
+    } catch (err) {
+      sync.error = err.message; saveSync();
+      if (manual) toast(err.message);
+    } finally {
+      syncing = false; syncBadge();
+      if (syncAgain) { syncAgain = false; cloudSync(); }
+    }
+  }
+
+  async function cloudFiles(uid) {
+    let flagged = false;
+    for (const ph of allPhotos().filter((p) => !p.up)) {
+      const rec = await Files.get(ph.id).catch(() => null);
+      if (!rec) continue; // está en otro dispositivo: se subirá desde allí
+      await cloud.uploadPhoto(uid, ph.id, rec.blob, rec.type);
+      ph.up = true; flagged = true;
+    }
+    if (sync.delFiles?.length) { await cloud.removePhotos(uid, sync.delFiles).catch(() => {}); sync.delFiles = []; }
+    if (flagged) save();
+  }
+
+  async function goPay(fn) {
+    toast('Abriendo la página segura de Stripe…');
+    try { const { url } = await cloud.callFunction(fn); location.href = url; } catch (err) { toast(err.message); }
+  }
+
+  // Al volver de Stripe: esperar a que llegue el aviso del pago y activar la cuenta.
+  async function afterPayment() {
+    toast('¡Gracias! Activando tu suscripción…');
+    for (let i = 0; i < 10; i++) {
+      await refreshProfile();
+      if (['active', 'trialing'].includes(acct.profile?.subscription_status)) break;
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+    gate = cloud.hasAccess(acct.profile) ? null : 'paywall';
+    render();
+    toast(['active', 'trialing'].includes(acct.profile?.subscription_status) ? 'Suscripción activa ✓' : 'Aún no hemos recibido el pago. Pulsa «Ya he pagado» en un momento.');
+    if (canWrite()) cloudSync();
+  }
+
+  async function logout() {
+    if (!confirm('¿Cerrar sesión? Tus datos siguen guardados en tu cuenta y se borrarán de este dispositivo.')) return;
+    await cloudSync().catch(() => {});
+    if (sync.error && canWrite() && !confirm(`No se pudieron guardar los últimos cambios (${sync.error}). ¿Cerrar sesión igualmente?`)) return;
+    await cloud.signOut().catch(() => {});
+    localStorage.removeItem(KEY); localStorage.removeItem(SYNC_KEY);
+    Files.gc([]).catch(() => {});
+    acct = null; KEY = BASE_KEY; SYNC_KEY = 'javinutricion-sync'; sync = {}; S = blank(); snapshot(); ver++;
+    gate = 'auth'; ui.authMode = 'login'; render(); syncBadge();
+  }
+
+  function accountCard() {
+    const p = acct?.profile || {};
+    const st = p.subscription_status;
+    let pill = '', info = '';
+    if (st === 'active' || st === 'trialing') {
+      pill = p.cancel_at_period_end ? '<span class="pill amber">Se cancela</span>' : '<span class="pill green">Suscripción activa</span>';
+      info = p.current_period_end ? `${p.cancel_at_period_end ? 'Acceso hasta' : 'Se renueva el'} ${esc(fmtDate(p.current_period_end.slice(0, 10), true))}` : '';
+    } else if (st === 'past_due') { pill = '<span class="pill red">Pago pendiente</span>'; info = 'Actualiza tu tarjeta para no perder el acceso.'; }
+    else if (cloud.hasAccess(p)) { pill = '<span class="pill blue">Prueba gratis</span>'; info = `Te quedan ${daysLeft(p.trial_ends_at)} días de prueba.`; }
+    else { pill = '<span class="pill red">Sin suscripción</span>'; info = 'Suscríbete para seguir trabajando.'; }
+    const paying = ['active', 'trialing', 'past_due'].includes(st);
+    return `<div class="card"><div class="card-head"><h3>Tu cuenta</h3>${pill}</div>
+      <p style="margin:0 0 4px;font-weight:700">${esc(p.full_name || acct?.user.email || '')}</p>
+      <p class="small muted" style="margin:0 0 12px">${esc(acct?.user.email || '')}${info ? ' · ' + info : ''}</p>
+      <div class="row nowrap">
+        ${paying ? `<button class="btn grow" data-act="billing">Gestionar suscripción</button>` : `<button class="btn primary grow" data-act="checkout">Suscribirme · ${esc(CFG.price || '')}</button>`}
+        <button class="btn" data-act="logout">Cerrar sesión</button>
+      </div>
+      <p class="small muted" style="margin:12px 0 0">☁ ${sync.error ? '⚠ ' + esc(sync.error) : 'Tus clientes, mediciones, fotos y dietas se guardan en tu cuenta y en todos tus dispositivos.'}${sync.last ? ` · ${new Date(sync.last).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}` : ''}</p>
+    </div>`;
+  }
+
+  // ---------------------------------------------------------------- pantallas previas: entrar, suscribirse
+  const BRAND_HERO = `<section class="hero gate-hero"><div class="who"><img src="icons/icon.svg" alt="" width="50" height="50"><div><div class="brand">Nutri<span>Lab</span></div><div class="by">by Javier Carbonell</div></div></div>
+    <div class="hello">La app para nutricionistas: clientes, dietas con IA y seguimiento del progreso.</div><span class="leaf">${ICON.leaf}</span></section>`;
+
+  function renderGate() {
+    document.body.classList.add('gated');
+    $$('.fab').forEach((f) => f.remove());
+    let html = BRAND_HERO;
+    if (gate === 'loading') html += `<div class="ai-progress"><div class="spinner"></div><b>Cargando tu cuenta…</b></div>`;
+    if (gate === 'auth') {
+      const m = ui.authMode || 'login';
+      html += `<div class="card">
+        ${m === 'reset' ? `<h3>Recuperar contraseña</h3><p class="small muted">Te enviaremos un enlace para crear una nueva.</p>` : `<div class="seg"><button class="${m === 'login' ? 'on' : ''}" data-auth="login">Entrar</button><button class="${m === 'signup' ? 'on' : ''}" data-auth="signup">Crear cuenta</button></div>`}
+        <form id="authForm">
+          ${m === 'signup' ? `<label class="f"><span>Nombre y apellidos</span><input name="name" required autocomplete="name"></label>` : ''}
+          <label class="f"><span>Email</span><input name="email" type="email" required autocomplete="email" inputmode="email"></label>
+          ${m !== 'reset' ? `<label class="f"><span>Contraseña</span><input name="password" type="password" required ${m === 'signup' ? 'minlength="8"' : ''} autocomplete="${m === 'signup' ? 'new-password' : 'current-password'}" placeholder="${m === 'signup' ? 'Mínimo 8 caracteres' : ''}"></label>` : ''}
+          ${m === 'signup' ? `<label class="check small" style="margin:4px 0 14px"><input type="checkbox" required> Acepto las ${CFG.termsUrl ? `<a href="${esc(CFG.termsUrl)}" target="_blank" rel="noopener">condiciones del servicio</a>` : 'condiciones del servicio'} y la ${CFG.privacyUrl ? `<a href="${esc(CFG.privacyUrl)}" target="_blank" rel="noopener">política de privacidad</a>` : 'política de privacidad'}</label>` : ''}
+          <button class="btn primary block" type="submit">${m === 'login' ? 'Entrar' : m === 'signup' ? `Empezar ${esc(CFG.trialDays || 14)} días gratis` : 'Enviar enlace'}</button>
+        </form>
+        <p class="small" style="text-align:center;margin:14px 0 0">${m === 'login' ? '<a href="#" data-auth="reset">¿Has olvidado tu contraseña?</a>' : m === 'reset' ? '<a href="#" data-auth="login">Volver</a>' : `Después, ${esc(CFG.price || '')}. Cancela cuando quieras.`}</p>
+      </div>`;
+    }
+    if (gate === 'newpass') html += `<div class="card"><h3>Nueva contraseña</h3><form id="newPassForm"><label class="f"><span>Contraseña nueva</span><input name="password" type="password" required minlength="8" autocomplete="new-password"></label><button class="btn primary block">Guardar</button></form></div>`;
+    if (gate === 'paywall') {
+      const p = acct?.profile || {};
+      const why = p.subscription_status === 'past_due' ? 'No se pudo cobrar tu última cuota.' : ['canceled', 'unpaid', 'incomplete_expired'].includes(p.subscription_status) ? 'Tu suscripción ha terminado.' : 'Tu prueba gratuita ha terminado.';
+      html += `<div class="card" style="text-align:center">
+        <h3 style="font-size:20px">${why}</h3>
+        <p class="muted" style="margin:0 0 6px">Suscríbete para seguir trabajando con tus clientes. Tus datos están a salvo.</p>
+        <div class="kcal-big" style="margin:14px 0 4px">${esc(CFG.price || '')}</div>
+        <ul class="steps" style="text-align:left;max-width:320px;margin:14px auto">
+          <li>Clientes, mediciones y fotos ilimitados</li><li>Dietas manuales y con IA, en PDF con tu marca</li><li>Todo sincronizado en tu móvil, tablet y PC</li><li>Pago con tarjeta, Apple Pay, Google Pay o PayPal. Cancela cuando quieras</li></ul>
+        <button class="btn primary block" data-act="${p.subscription_status === 'past_due' ? 'billing' : 'checkout'}">${p.subscription_status === 'past_due' ? 'Actualizar forma de pago' : 'Suscribirme'}</button>
+        <div class="row nowrap" style="margin-top:10px"><button class="btn grow" data-act="recheck">Ya he pagado</button><button class="btn grow" data-act="export">Exportar mis datos</button></div>
+        <button class="btn ghost block" data-act="logout" style="margin-top:6px">Cerrar sesión</button>
+      </div>`;
+    }
+    $('#view').innerHTML = html;
+    bindGate();
+  }
+
+  function bindGate() {
+    $('#authForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = Object.fromEntries(new FormData(e.target)), m = ui.authMode || 'login', btn = e.target.querySelector('button[type=submit]');
+      btn.disabled = true;
+      try {
+        if (m === 'login') await enter(await cloud.signIn(f.email.trim(), f.password));
+        else if (m === 'signup') {
+          const r = await cloud.signUp(f.name.trim(), f.email.trim(), f.password);
+          if (r.needsConfirm) { ui.authMode = 'login'; render(); toast('Te hemos enviado un email para confirmar tu cuenta'); } else await enter(r.user);
+        } else { await cloud.resetPassword(f.email.trim()); ui.authMode = 'login'; render(); toast('Revisa tu email para crear una contraseña nueva'); }
+      } catch (err) { toast(err.message); btn.disabled = false; }
+    });
+    $('#newPassForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        await cloud.updatePassword(new FormData(e.target).get('password'));
+        recovering = false; toast('Contraseña cambiada ✓');
+        gate = acct ? (cloud.hasAccess(acct.profile) ? null : 'paywall') : 'auth'; render(); syncBadge();
+      } catch (err) { toast(err.message); }
+    });
+  }
+
+  async function bootCloud() {
+    render();
+    try {
+      cloud = await import('./cloud.js');
+      cloud.init(CFG);
+    } catch { $('#view').innerHTML = BRAND_HERO + '<div class="note warn">No se pudo cargar NutriLab. Revisa tu conexión y vuelve a abrir la app.</div>'; return; }
+    cloud.onAuthChange((event, user) => {
+      if (event === 'PASSWORD_RECOVERY') { recovering = true; gate = 'newpass'; render(); if (user && !acct) enter(user); }
+      else if (event === 'SIGNED_IN' && user && !acct) enter(user);
+    });
+    const user = await cloud.currentUser().catch(() => null);
+    if (user) await enter(user); else { gate = 'auth'; render(); }
+    if (/[?&]pago=ok/.test(location.hash) && acct) { history.replaceState(null, '', location.pathname + '#/ajustes'); afterPayment(); }
+    else if (/[?&]pago=/.test(location.hash)) history.replaceState(null, '', location.pathname + '#/ajustes');
   }
 
   // ================================================================ ejemplo
@@ -1161,9 +1401,11 @@
   }
 
   document.addEventListener('click', (e) => {
-    const t = e.target.closest('[data-nav], [data-act], [data-cfilter], [data-fcat], [data-metric], [data-measure], [data-day], [data-item], [data-food], [data-settheme]');
+    const t = e.target.closest('[data-nav], [data-act], [data-cfilter], [data-fcat], [data-metric], [data-measure], [data-day], [data-item], [data-food], [data-settheme], [data-auth]');
     if (!t || t.closest('.att')) return;
     const d = t.dataset;
+    if (d.auth) { e.preventDefault(); ui.authMode = d.auth; return render(); }
+    if (gate && !['checkout', 'billing', 'recheck', 'logout', 'export'].includes(d.act)) return;
     if (t.tagName === 'A' && !d.act) return;
     if (d.nav) { e.preventDefault(); closeSheet(); return go(d.nav); }
     if (d.cfilter) { ui.clientFilter = d.cfilter; return render(); }
@@ -1210,6 +1452,11 @@
       case 'demo': return loadDemo();
       case 'ai-save': aiCfg = { apiKey: $('#aiKey').value.trim(), model: $('#aiModel').value }; saveAi(); return toast(aiCfg.apiKey ? 'IA configurada ✓' : 'Clave eliminada');
       case 'share': return shareData();
+      case 'checkout': return goPay('create-checkout');
+      case 'billing': return goPay('billing-portal');
+      case 'recheck': return afterPayment();
+      case 'logout': return logout();
+      case 'export': return download(`nutrilab-${today()}.json`, new Blob([JSON.stringify(shareable(), null, 1)], { type: 'application/json' }));
       case 'sync-on': return enableSync();
       case 'sync-now': return syncNow(true);
       case 'sync-off': if (confirm('¿Desconectar la sincronización en este dispositivo? Los datos se quedan aquí.')) { sync = {}; saveSync(); syncBadge(); render(); } return;
@@ -1221,13 +1468,11 @@
   // ================================================================ arranque
   const top = $('header.top');
   window.addEventListener('scroll', () => top.classList.toggle('scrolled', window.scrollY > 4), { passive: true });
-  render();
-  syncBadge();
-  syncNow();
+  if (CLOUD) bootCloud(); else { render(); syncBadge(); syncNow(); }
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncNow(); });
   window.addEventListener('online', () => syncNow());
   setInterval(() => { if (document.visibilityState === 'visible') syncNow(); }, 60000);
   navigator.storage?.persist?.().catch(() => {});
-  Files.gc(allPhotos().map((p) => p.id)).catch(() => {});
+  if (!CLOUD) Files.gc(allPhotos().map((p) => p.id)).catch(() => {});
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
