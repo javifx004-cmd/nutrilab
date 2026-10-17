@@ -1,7 +1,7 @@
 // Funciona sin conexión: responde al instante desde la caché y actualiza en segundo plano.
 // Las peticiones a otros orígenes (GitHub, API de Claude) no se interceptan.
-const CACHE = 'javinutricion-v1';
-const ASSETS = ['./', 'index.html', 'app.css', 'app.js', 'files.js', 'foods.js', 'ai.js', 'vendor/anthropic-sdk-0.131.0.mjs', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
+const CACHE = 'javinutricion-v2';
+const ASSETS = ['./', 'index.html', 'app.css', 'app.js', 'files.js', 'foods.js', 'ai.js', 'vendor/anthropic-sdk-0.131.0.mjs', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'vendor/fonts/plus-jakarta-sans.woff2'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));

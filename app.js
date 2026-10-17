@@ -20,6 +20,7 @@
     recomp: { l: 'Recomposición', adj: -0.05, pkg: 2.2, cls: 'green' },
   };
   const STATUS = { activo: 'Activo', pausa: 'En pausa', alta: 'Alta' };
+  const STATUS_PLURAL = { activo: 'Activos', pausa: 'En pausa', alta: 'De alta' };
   const METRICS = { weight: ['Peso', 'kg'], fat: ['% grasa', '%'], waist: ['Cintura', 'cm'], hip: ['Cadera', 'cm'], chest: ['Pecho', 'cm'], arm: ['Brazo', 'cm'], thigh: ['Muslo', 'cm'] };
   const MEAL_NAMES = ['Desayuno', 'Media mañana', 'Comida', 'Merienda', 'Cena', 'Recena'];
   const STYLES = ['Mediterránea', 'Alta en proteína', 'Vegetariana', 'Vegana', 'Sin gluten', 'Sin lactosa', 'Baja en hidratos', 'Ayuno intermitente 16:8', 'Económica'];
@@ -90,7 +91,7 @@
   };
   const initials = (n) => (n || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
   const hue = (s) => [...(s || '')].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 140);
-  const avatar = (c, lg = false) => `<div class="avatar${lg ? ' lg' : ''}" style="background:hsl(${hue(c.name)} 55% 45%)">${esc(initials(c.name))}</div>`;
+  const avatar = (c, lg = false) => { const h = hue(c.name); return `<div class="avatar${lg ? ' lg' : ''}" style="background:linear-gradient(135deg,hsl(${h} 70% 60%),hsl(${(h + 30) % 360} 62% 40%))">${esc(initials(c.name))}</div>`; };
   const fileSize = (b) => (b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB');
   const opt = (pairs, v) => pairs.map(([val, label]) => `<option value="${esc(val)}" ${String(val) === String(v) ? 'selected' : ''}>${esc(label)}</option>`).join('');
 
@@ -232,7 +233,11 @@
     const hero = `
       <section class="hero">
         <div class="who"><img src="icons/icon.svg" alt="" width="46" height="46"><div><div class="brand">Javi Nutrición</div><div class="by">by Javier Carbonell</div></div></div>
-        <div class="hello">${hello}, Javi 👋${thisWeek.length ? ` Tienes <b>${thisWeek.length}</b> revisi${thisWeek.length === 1 ? 'ón' : 'ones'} esta semana.` : ''}</div>
+        <div class="hello">${hello}, Javi 👋${thisWeek.length ? ` Tienes <b>${thisWeek.length}</b> revisi${thisWeek.length === 1 ? 'ón' : 'ones'} esta semana.` : S.clients.length ? ' Todo al día.' : ''}</div>
+        ${S.clients.length ? `<div class="glass">
+          <div><div class="v num">${active.length}</div><div class="l">Clientes activos</div></div>
+          <div><div class="v num">${thisWeek.length}</div><div class="l">Revisiones 7 días</div></div>
+          <div><div class="v num">${S.plans.length}</div><div class="l">Dietas creadas</div></div></div>` : ''}
         <span class="leaf">${ICON.leaf}</span>
       </section>`;
     if (!S.clients.length) return hero + `
@@ -242,11 +247,6 @@
 
     const recent = S.measures.filter((m) => clientById(m.clientId)).sort((a, b) => b.date.localeCompare(a.date) || (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 5);
     return hero + `
-      <div class="stats">
-        <div class="stat"><div class="l">Clientes activos</div><div class="v num">${active.length}</div><div class="s">${S.clients.length} en total</div></div>
-        <div class="stat"><div class="l">Revisiones 7 días</div><div class="v num">${thisWeek.length}</div><div class="s">${reviews.filter((c) => c.nextReview < today()).length} atrasadas</div></div>
-        <div class="stat"><div class="l">Dietas</div><div class="v num">${S.plans.length}</div><div class="s">${S.plans.filter((p) => p.source === 'ia').length} con IA</div></div>
-      </div>
       <div class="card"><div class="card-head"><h3>Próximas revisiones</h3><button class="btn sm ghost" data-nav="#/clientes">Ver clientes</button></div>
         ${reviews.length ? reviews.slice(0, 6).map((c) => `
           <div class="list-item" data-nav="#/c/${c.id}">${avatar(c)}
@@ -271,7 +271,7 @@
     const counts = Object.fromEntries(Object.keys(STATUS).map((k) => [k, S.clients.filter((c) => (c.status || 'activo') === k).length]));
     return `
       <div class="search-wrap">${ICON.search}<input class="search" id="clientSearch" type="search" placeholder="Buscar cliente…" value="${esc(ui.clientQuery)}" autocomplete="off"></div>
-      <div class="chips">${Object.entries(STATUS).map(([k, l]) => `<button class="chip ${ui.clientFilter === k ? 'on' : ''}" data-cfilter="${k}">${l}<span class="n">${counts[k]}</span></button>`).join('')}<button class="chip ${ui.clientFilter === 'all' ? 'on' : ''}" data-cfilter="all">Todos<span class="n">${S.clients.length}</span></button></div>
+      <div class="chips">${Object.entries(STATUS_PLURAL).map(([k, l]) => `<button class="chip ${ui.clientFilter === k ? 'on' : ''}" data-cfilter="${k}">${l}<span class="n">${counts[k]}</span></button>`).join('')}<button class="chip ${ui.clientFilter === 'all' ? 'on' : ''}" data-cfilter="all">Todos<span class="n">${S.clients.length}</span></button></div>
       <div id="clientList">${clientList()}</div>`;
   }
   function clientList() {
@@ -285,7 +285,7 @@
       const d = s.length > 1 ? s[s.length - 1].v - s[0].v : null;
       return `<div class="client-card" data-nav="#/c/${c.id}">${avatar(c)}
         <div class="body"><div class="name">${esc(c.name)}</div>
-          <div class="meta"><span class="pill ${g.cls}">${g.l}</span>${ageOf(c.birth) ? `<span>${ageOf(c.birth)} años</span>` : ''}${c.nextReview ? `<span>· revisión ${esc(relDay(c.nextReview))}</span>` : ''}</div></div>
+          <div class="meta"><span class="pill ${g.cls}">${g.l}</span>${ageOf(c.birth) ? `<span>${ageOf(c.birth)} años</span>` : ''}${c.nextReview ? `<span>Revisión ${esc(relDay(c.nextReview))}</span>` : ''}</div></div>
         <div class="end" style="text-align:right">${s.length ? `<b class="num">${fmt(s[s.length - 1].v)} kg</b>` : ''}${d != null ? `<div class="small num ${trendCls(c, d)}">${d > 0 ? '+' : ''}${fmt(d)} kg</div>` : ''}</div></div>`;
     }).join('');
   }
@@ -310,16 +310,27 @@
     return head + renderSummary(c);
   }
 
-  function macroBars(t, actual) {
-    const row = (k, label, cls, target) => {
-      const v = actual ? actual[k] : target;
-      const pct = target ? Math.min(100, (v / target) * 100) : 0;
-      const over = actual && target && v > target * 1.08;
-      return `<div class="macro"><div class="top"><span><span class="dot" style="background:var(--${k}-col)"></span>${label}</span>
-        <span class="num"><b>${fmt(v, 0)} g</b>${actual ? ` / ${fmt(target, 0)} g` : ` · ${fmt((target * (k === 'f' ? 9 : 4) / t.kcal) * 100, 0)}%`}</span></div>
-        <div class="bar ${cls}${over ? ' over' : ''}"><i style="width:${actual ? pct : Math.min(100, (target * (k === 'f' ? 9 : 4) / t.kcal) * 100)}%"></i></div></div>`;
-    };
-    return `<div class="macros">${row('p', 'Proteínas', 'p', t.p)}${row('c', 'Hidratos', 'c', t.c)}${row('f', 'Grasas', 'f', t.f)}</div>`;
+  // Anillo con el reparto de las kcal entre proteínas, hidratos y grasas.
+  function macroRing(t) {
+    const R = 58, C = 2 * Math.PI * R, gap = 6;
+    const parts = [['p', t.p * 4], ['c', t.c * 4], ['f', t.f * 9]];
+    const total = parts.reduce((s, [, v]) => s + v, 0) || 1;
+    let off = 0;
+    const arcs = parts.map(([k, v]) => {
+      const len = Math.max(0, (v / total) * C - gap);
+      const a = `<circle cx="68" cy="68" r="${R}" fill="none" stroke="var(--${k}-col)" stroke-width="14" stroke-linecap="round" stroke-dasharray="${len} ${C}" stroke-dashoffset="${-off - gap / 2}"/>`;
+      off += (v / total) * C;
+      return a;
+    }).join('');
+    const pct = (v) => Math.round((v / total) * 100);
+    return `<div class="ring-wrap">
+      <div class="ring"><svg viewBox="0 0 136 136"><circle cx="68" cy="68" r="${R}" fill="none" stroke="var(--surface-3)" stroke-width="14"/>${arcs}</svg>
+        <div class="center"><b class="num">${fmt(t.kcal, 0)}</b><span>kcal / día</span></div></div>
+      <div class="legend-list">
+        <div class="it"><span class="sw" style="background:var(--p-col)"></span><span class="nm">Proteínas</span><span class="g num">${fmt(t.p, 0)} g<small>${pct(t.p * 4)}%</small></span></div>
+        <div class="it"><span class="sw" style="background:var(--c-col)"></span><span class="nm">Hidratos</span><span class="g num">${fmt(t.c, 0)} g<small>${pct(t.c * 4)}%</small></span></div>
+        <div class="it"><span class="sw" style="background:var(--f-col)"></span><span class="nm">Grasas</span><span class="g num">${fmt(t.f, 0)} g<small>${pct(t.f * 9)}%</small></span></div>
+      </div></div>`;
   }
 
   function renderSummary(c) {
@@ -331,9 +342,8 @@
     return `
       ${t.kcal ? `<div class="card">
         <div class="card-head"><h3>Objetivo diario</h3>${t.custom ? '<span class="pill mute">manual</span>' : '<span class="pill green">calculado</span>'}</div>
-        <div class="row between" style="margin-bottom:12px;align-items:flex-end"><div><div class="kcal-big num">${fmt(t.kcal, 0)}</div><div class="small muted">kcal / día</div></div>
-          ${t.tdee ? `<div class="small muted" style="text-align:right">Metabolismo basal ${fmt(t.bmr, 0)} kcal<br>Gasto total ${fmt(t.tdee, 0)} kcal</div>` : ''}</div>
-        ${macroBars(t)}
+        ${macroRing(t)}
+        ${t.tdee ? `<div class="meta-line"><span class="pill mute">Basal ${fmt(t.bmr, 0)} kcal</span><span class="pill mute">Gasto total ${fmt(t.tdee, 0)} kcal</span><span class="pill ${t.kcal < t.tdee ? 'blue' : t.kcal > t.tdee ? 'amber' : 'mute'}">${t.kcal < t.tdee ? 'Déficit' : t.kcal > t.tdee ? 'Superávit' : 'Mantenimiento'} ${fmt(Math.abs(t.kcal - t.tdee), 0)} kcal</span></div>` : ''}
       </div>` : `<div class="note warn">Para calcular sus calorías y macros falta: <b>${t.missing.join(', ')}</b>. <a href="#" data-act="edit-client" data-id="${c.id}">Completar ficha</a>${!t.weight ? ' o <a href="#" data-act="new-measure" data-id="' + c.id + '">añadir una medición</a>' : ''}.</div>`}
 
       <div class="card"><div class="card-head"><h3>Peso</h3><button class="btn sm" data-act="new-measure" data-id="${c.id}">${ICON.plus}Medición</button></div>
@@ -553,7 +563,7 @@
       ${t.kcal ? `<p class="small muted" style="margin:-4px 4px 14px">Objetivo: <b>${fmt(t.kcal, 0)} kcal</b> · P ${fmt(t.p, 0)} g · H ${fmt(t.c, 0)} g · G ${fmt(t.f, 0)} g</p>` : ''}
       ${ps.length ? ps.map((p) => {
         const a = planAvg(p), diff = t.kcal ? ((a.kcal - t.kcal) / t.kcal) * 100 : null;
-        return `<div class="client-card" data-nav="#/d/${p.id}"><div class="ico">${p.source === 'ia' ? ICON.ai : ICON.plate}</div>
+        return `<div class="client-card" data-nav="#/d/${p.id}"><div class="ico${p.source === 'ia' ? ' ai' : ''}">${p.source === 'ia' ? ICON.ai : ICON.plate}</div>
           <div class="body"><div class="name">${esc(p.name)}</div>
             <div class="meta">${p.active ? '<span class="pill green">Activa</span>' : ''}<span>${p.days.length} día${p.days.length === 1 ? '' : 's'}</span><span>· ${fmt(a.kcal, 0)} kcal/día</span>${diff != null && Math.abs(diff) > 5 ? `<span class="pill amber">${diff > 0 ? '+' : ''}${fmt(diff, 0)}%</span>` : ''}</div></div>
           <span class="small muted">${esc(fmtDate(new Date(p.createdAt || Date.now()).toISOString().slice(0, 10)))}</span></div>`;
@@ -598,7 +608,7 @@
       ${d.meals.map((m, mi) => {
         const mm = mealMacros(m);
         return `<section class="meal">
-          <div class="meal-head"><div class="name">${esc(m.name)}${m.time ? ` <span class="muted" style="font-weight:500">· ${esc(m.time)}</span>` : ''}</div><span class="k num">${fmt(mm.kcal, 0)} kcal</span>
+          <div class="meal-head"><div class="name">${esc(m.name)}${m.time ? ` <span class="t">· ${esc(m.time)}</span>` : ''}</div><span class="k num">${fmt(mm.kcal, 0)} kcal</span>
             <button class="icon-btn plain" data-act="meal-menu" data-meal="${mi}" aria-label="Opciones de ${esc(m.name)}">${ICON.more}</button></div>
           ${m.items.map((it, ii) => { const x = itemMacros(it); return `<div class="item">
             <div class="body" data-item="${mi}:${ii}" style="cursor:pointer"><div class="t">${esc(it.name)}</div><div class="s num">${it.household ? esc(it.household) + ' · ' : ''}${fmt(x.kcal, 0)} kcal · P ${fmt(x.p)} · H ${fmt(x.c)} · G ${fmt(x.f)}</div></div>
@@ -1208,6 +1218,8 @@
   });
 
   // ================================================================ arranque
+  const top = $('header.top');
+  window.addEventListener('scroll', () => top.classList.toggle('scrolled', window.scrollY > 4), { passive: true });
   render();
   syncBadge();
   syncNow();
