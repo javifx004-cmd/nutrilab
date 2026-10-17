@@ -147,6 +147,98 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   }
 
+  // ================================================================ citas → calendario del móvil
+  // Archivo .ics (iPhone, Android, Outlook, Mac) o enlace a Google Calendar. La hora es «flotante»:
+  // cada calendario la pone en la zona horaria del dispositivo.
+  const DURATIONS = [[30, '30 min'], [45, '45 min'], [60, '1 hora'], [90, '1 h 30 min']];
+  const apptWhen = (a) => `el ${fmtDate(a.date, true)}${a.time ? ' a las ' + a.time : ''}`;
+  function apptEnd(a) {
+    if (!a.time) return { date: addDays(a.date, 1) };
+    const d = new Date(`${a.date}T${a.time}`); d.setMinutes(d.getMinutes() + (num(a.mins) || 45));
+    const p = (n) => String(n).padStart(2, '0');
+    return { date: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`, time: `${p(d.getHours())}:${p(d.getMinutes())}` };
+  }
+  const icsStamp = (iso, time) => iso.replace(/-/g, '') + (time ? 'T' + time.replace(':', '') + '00' : '');
+  const icsText = (s) => String(s ?? '').replace(/[\;,]/g, (c) => '\\' + c).replace(/\r?\n/g, '\\n');
+  // Las líneas de más de 75 octetos se parten (RFC 5545); se corta por caracteres para no romper el UTF-8.
+  const icsFold = (line) => { const out = []; let cur = '', bytes = 0;
+    for (const ch of line) { const b = new TextEncoder().encode(ch).length; if (bytes + b > 73) { out.push(cur); cur = ' '; bytes = 1; } cur += ch; bytes += b; }
+    out.push(cur); return out.join('\r\n'); };
+  function icsFile(appts) {
+    const now = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
+    const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//NutriLab//Citas//ES', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
+    for (const a of appts) {
+      const end = apptEnd(a);
+      lines.push('BEGIN:VEVENT', `UID:${a.uid}@nutrilab`, `DTSTAMP:${now}`,
+        a.time ? `DTSTART:${icsStamp(a.date, a.time)}` : `DTSTART;VALUE=DATE:${icsStamp(a.date)}`,
+        a.time ? `DTEND:${icsStamp(end.date, end.time)}` : `DTEND;VALUE=DATE:${icsStamp(end.date)}`,
+        `SUMMARY:${icsText(a.title)}`);
+      if (a.place) lines.push(`LOCATION:${icsText(a.place)}`);
+      if (a.details) lines.push(`DESCRIPTION:${icsText(a.details)}`);
+      if (a.url) lines.push(`URL:${a.url}`);
+      lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${icsText(a.title)}`, `TRIGGER:${a.time ? '-PT1H' : '-PT15H'}`, 'END:VALARM', 'END:VEVENT');
+    }
+    lines.push('END:VCALENDAR');
+    return lines.map(icsFold).join('\r\n') + '\r\n';
+  }
+  function googleCalUrl(a) {
+    const end = apptEnd(a);
+    const q = new URLSearchParams({ action: 'TEMPLATE', text: a.title, dates: `${icsStamp(a.date, a.time)}/${icsStamp(end.date, end.time)}` });
+    if (a.details || a.url) q.set('details', [a.details, a.url].filter(Boolean).join('\n\n'));
+    if (a.place) q.set('location', a.place);
+    return 'https://calendar.google.com/calendar/render?' + q;
+  }
+  const isIOS = () => /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  function openIcs(appts, name) {
+    const ics = icsFile(appts);
+    // En iPhone, Safari abre el .ics directamente con «Añadir al calendario»; en el resto se descarga y se abre.
+    if (isIOS()) { location.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics); return; }
+    download(name, new Blob([ics], { type: 'text/calendar;charset=utf-8' }));
+  }
+  // Cita de un cliente vista por el nutricionista
+  function clientAppt(c) {
+    if (!c?.nextReview) return null;
+    const w = currentWeight(c);
+    return { uid: `rev-${c.id}-${c.nextReview}`, date: c.nextReview, time: c.reviewTime || '', mins: c.reviewMins || 45, place: c.reviewPlace || '',
+      title: `Revisión · ${c.name}`,
+      details: [`Objetivo: ${(GOALS[c.goal] || GOALS.mantener).l}`, w ? `Último peso: ${fmt(w)} kg` : '', c.phone ? `Tel.: ${c.phone}` : '', c.allergies ? `Alergias: ${c.allergies}` : ''].filter(Boolean).join('\n'),
+      url: `${location.origin}${location.pathname}#/c/${c.id}` };
+  }
+  function calendarSheet(a, { phone, name, who } = {}) {
+    const tel = (phone || '').replace(/[^\d]/g, '').replace(/^(?=[67]\d{8}$)/, '34');
+    const msg = `Hola ${(name || '').split(' ')[0]}, te recuerdo tu revisión ${apptWhen(a)}${a.place ? ` (${a.place})` : ''}. ¡Hasta entonces!${who ? ' ' + who : ''}`;
+    sheet('Añadir al calendario', `
+      <div class="appt"><div class="ico">${ICON.calendar}</div><div><b>${esc(a.title)}</b><div class="small muted" style="text-transform:none">${esc(fmtDate(a.date, true).replace(/^./, (x) => x.toUpperCase()))}${a.time ? ` · ${esc(a.time)}–${esc(apptEnd(a).time)}` : ''}${a.place ? ' · ' + esc(a.place) : ''}</div></div></div>
+      <div class="menu">
+        <button class="btn primary" id="calIcs">${ICON.calendar}${isIOS() ? 'Calendario del iPhone' : 'Calendario del móvil / PC (.ics)'}</button>
+        <a class="btn" href="${esc(googleCalUrl(a))}" target="_blank" rel="noopener">${ICON.calendar}Google Calendar</a>
+        ${tel ? `<a class="btn" href="https://wa.me/${tel}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">${ICON.wa}Recordárselo por WhatsApp</a>` : ''}
+      </div>
+      <p class="small muted">${a.time ? 'Incluye un aviso 1 hora antes.' : 'Sin hora: se añade como evento de todo el día, con aviso la tarde anterior.'}</p>`);
+    $('#calIcs').onclick = () => { openIcs([a], `revision-${a.date}.ics`); haptic(); };
+  }
+  function reviewSheet(c) {
+    const lastPlace = (() => { try { return localStorage.getItem('nutrilab-last-place') || ''; } catch { return ''; } })();
+    sheet(`Cita · ${c.name}`, `<form id="rf">
+      <div class="grid2"><label class="f"><span>Fecha</span><input type="date" name="d" required value="${esc(c.nextReview || addDays(today(), 14))}"></label>
+        <label class="f"><span>Hora</span><input type="time" name="t" step="300" value="${esc(c.reviewTime || '')}"></label></div>
+      <div class="grid2"><label class="f"><span>Duración</span><select name="m">${opt(DURATIONS, c.reviewMins || 45)}</select></label>
+        <label class="f"><span>Lugar</span><input name="p" value="${esc(c.reviewPlace ?? lastPlace)}" placeholder="Consulta, online…" autocomplete="off"></label></div>
+      <button class="btn primary block" name="cal" value="1">${ICON.calendar}Guardar y añadir al calendario</button>
+      <button class="btn block" style="margin-top:8px">${ICON.check}Solo guardar</button>
+      ${c.nextReview ? `<button type="button" class="btn ghost block" id="rfClear" style="margin-top:8px">Quitar cita</button>` : ''}</form>`);
+    $('#rf').onsubmit = (ev) => {
+      ev.preventDefault();
+      const f = new FormData(ev.target);
+      Object.assign(c, { nextReview: f.get('d'), reviewTime: f.get('t'), reviewMins: num(f.get('m')) || 45, reviewPlace: f.get('p').trim() });
+      try { if (c.reviewPlace) localStorage.setItem('nutrilab-last-place', c.reviewPlace); } catch { /* no-op */ }
+      save(); render();
+      if (ev.submitter?.name === 'cal') calendarSheet(clientAppt(c), { phone: c.phone, name: c.name });
+      else { closeSheet(); toast('Cita guardada'); }
+    };
+    $('#rfClear')?.addEventListener('click', () => { Object.assign(c, { nextReview: '', reviewTime: '' }); save(); closeSheet(); render(); });
+  }
+
   // ================================================================ cálculos (caché por versión)
   let cache = { ver: -1 };
   function idx() {
@@ -271,11 +363,11 @@
 
     const recent = S.measures.filter((m) => clientById(m.clientId)).sort((a, b) => b.date.localeCompare(a.date) || (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 5);
     return hero + trialNote + `
-      <div class="card"><div class="card-head"><h3>Próximas revisiones</h3><button class="btn sm ghost" data-nav="#/clientes">Ver clientes</button></div>
+      <div class="card"><div class="card-head"><h3>Próximas citas</h3>${reviews.some((c) => c.nextReview >= today()) ? `<button class="btn sm ghost" data-act="cal-all">${ICON.calendar}Al calendario</button>` : `<button class="btn sm ghost" data-nav="#/clientes">Ver clientes</button>`}</div>
         ${reviews.length ? reviews.slice(0, 6).map((c) => `
           <div class="list-item" data-nav="#/c/${c.id}">${avatar(c)}
             <div class="body"><div class="t">${esc(c.name)}</div><div class="s">${esc((GOALS[c.goal] || GOALS.mantener).l)}${currentWeight(c) ? ' · ' + fmt(currentWeight(c)) + ' kg' : ''}</div></div>
-            <span class="pill ${c.nextReview < today() ? 'red' : c.nextReview <= week ? 'amber' : 'mute'}">${esc(relDay(c.nextReview))}</span></div>`).join('') : '<p class="small muted" style="margin:0">Pon la fecha de la próxima revisión en la ficha de cada cliente.</p>'}
+            <span class="pill ${c.nextReview < today() ? 'red' : c.nextReview <= week ? 'amber' : 'mute'}">${esc(relDay(c.nextReview))}${c.reviewTime ? ' · ' + esc(c.reviewTime) : ''}</span></div>`).join('') : '<p class="small muted" style="margin:0">Programa la próxima cita desde la ficha de cada cliente y añádela al calendario del móvil.</p>'}
       </div>
       <div class="card"><h3>Últimas mediciones</h3>
         ${recent.length ? recent.map((m) => {
@@ -383,7 +475,7 @@
       </div>
 
       <div class="stats two">
-        <div class="stat" data-act="review" data-id="${c.id}" style="cursor:pointer"><div class="l">Próxima revisión</div><div class="v">${c.nextReview ? esc(relDay(c.nextReview)) : '—'}</div><div class="s">${c.nextReview ? esc(fmtDate(c.nextReview, true)) : 'toca para programar'}</div></div>
+        <div class="stat" data-act="review" data-id="${c.id}" style="cursor:pointer"><div class="l">Próxima cita</div><div class="v">${c.nextReview ? esc(relDay(c.nextReview)) : '—'}</div><div class="s">${c.nextReview ? esc(fmtDate(c.nextReview, true)) + (c.reviewTime ? ' · ' + esc(c.reviewTime) : '') : 'toca para programar'}</div>${c.nextReview && !viewing ? `<button class="btn sm cal-btn" data-act="cal-client" data-id="${c.id}">${ICON.calendar}Al calendario</button>` : ''}</div>
         <div class="stat" ${active ? `data-nav="#/d/${active.id}" style="cursor:pointer"` : ''}><div class="l">Dieta ${active?.active ? 'activa' : 'más reciente'}</div><div class="v" style="font-size:15px">${active ? esc(active.name) : '—'}</div><div class="s">${active ? fmt(planAvg(active).kcal, 0) + ' kcal/día' : 'sin dietas'}</div></div>
       </div>
       ${c.allergies ? `<div class="note warn"><b>Alergias / intolerancias:</b> ${esc(c.allergies)}</div>` : ''}
@@ -448,7 +540,7 @@
     $('#view').innerHTML = head + `
       ${portal.error ? `<div class="note warn">${esc(portal.error)} Mostramos la última versión guardada.</div>` : ''}
       <div class="stats two">
-        <div class="stat"><div class="l">Próxima revisión</div><div class="v" style="font-size:17px">${d.client.nextReview ? esc(relDay(d.client.nextReview)) : '—'}</div><div class="s">${d.client.nextReview ? esc(fmtDate(d.client.nextReview, true)) : 'tu nutricionista te avisará'}</div></div>
+        <div class="stat"><div class="l">Próxima cita</div><div class="v" style="font-size:17px">${d.client.nextReview ? esc(relDay(d.client.nextReview)) : '—'}</div><div class="s">${d.client.nextReview ? esc(fmtDate(d.client.nextReview, true)) + (d.client.reviewTime ? ' · ' + esc(d.client.reviewTime) : '') : 'tu nutricionista te avisará'}</div>${d.client.nextReview >= today() ? `<button class="btn sm cal-btn" data-act="portal-cal">${ICON.calendar}A mi calendario</button>` : ''}</div>
         <div class="stat"><div class="l">Tu peso</div><div class="v num">${last ? fmt(last.v) + ' kg' : '—'}</div><div class="s ${first && last && last.v !== first.v ? trendCls({ goal: d.client.goal }, last.v - first.v) : ''}">${first && last && ms.length > 1 ? `${last.v - first.v > 0 ? '+' : ''}${fmt(last.v - first.v)} kg desde el inicio` : ''}</div></div>
       </div>
       ${plan ? `
@@ -636,7 +728,7 @@
         <label class="f"><span>Preferencias y estilo de vida</span><textarea name="preferences" rows="2" placeholder="Horarios, entreno, cocina poco, come fuera…">${esc(c.preferences)}</textarea></label>
         <div class="form-sec">Contacto y seguimiento</div>
         <div class="grid2">${fld('phone', 'Teléfono', 'type="tel" inputmode="tel"')}${fld('email', 'Email', 'type="email"')}
-          ${fld('nextReview', 'Próxima revisión', 'type="date"')}<label class="f"><span>Estado</span><select name="status">${opt(Object.entries(STATUS), c.status || 'activo')}</select></label></div>
+          ${fld('nextReview', 'Próxima cita', 'type="date"')}${fld('reviewTime', 'Hora de la cita', 'type="time" step="300"')}<label class="f"><span>Estado</span><select name="status">${opt(Object.entries(STATUS), c.status || 'activo')}</select></label></div>
         <div class="form-sec">Ajustes de cálculo (opcional)</div>
         <div class="grid3">${fld('kcal', 'Kcal fijas', 'inputmode="decimal"', 'auto')}${fld('pKg', 'Proteína g/kg', 'inputmode="decimal"', 'auto')}${fld('fatPct', 'Grasa % kcal', 'inputmode="decimal"', '25')}</div>
         <label class="f"><span>Notas</span><textarea name="notes" rows="3">${esc(c.notes)}</textarea></label>
@@ -1596,6 +1688,11 @@
       const pt = e.target.closest('[data-pday], [data-act]');
       if (!pt) return;
       if (pt.dataset.pday) { portal.day = num(pt.dataset.pday); return render(); }
+      if (pt.dataset.act === 'portal-cal') {
+        const d = portal.data, cl = d.client, nut = d.nutritionist?.name || 'tu nutricionista';
+        return calendarSheet({ uid: `cita-${cl.nextReview}-${hue(location.hash)}`, date: cl.nextReview, time: cl.reviewTime || '', mins: cl.reviewMins || 45, place: cl.reviewPlace || '',
+          title: `Revisión con ${nut}`, details: 'Si puedes, pésate esa mañana en ayunas y trae tus dudas.', url: location.href });
+      }
       if (pt.dataset.act === 'portal-print') { const d = portal.data; return printPlan(d.plan, { name: d.client.name }, {}); }
       if (pt.dataset.act === 'portal-exit') {
         e.preventDefault(); localStorage.removeItem(PORTAL_LAST); portal = null;
@@ -1643,11 +1740,12 @@
         save(); toast('Cliente eliminado'); return go('#/clientes');
       }
       case 'new-measure': return measureSheet(d.id);
-      case 'review': {
-        const c = clientById(d.id);
-        sheet('Próxima revisión', `<form id="rf"><label class="f"><span>Fecha</span><input type="date" name="d" value="${esc(c.nextReview || addDays(today(), 14))}"></label><button class="btn primary block">${ICON.check}Guardar</button></form>`);
-        $('#rf').onsubmit = (ev) => { ev.preventDefault(); c.nextReview = new FormData(ev.target).get('d'); save(); closeSheet(); render(); };
-        return;
+      case 'review': return reviewSheet(clientById(d.id));
+      case 'cal-client': { const c = clientById(d.id); return calendarSheet(clientAppt(c), { phone: c.phone, name: c.name }); }
+      case 'cal-all': {
+        const list = S.clients.filter((c) => (c.status || 'activo') === 'activo' && c.nextReview >= today()).map(clientAppt);
+        if (!list.length) return toast('No hay citas próximas');
+        openIcs(list, 'citas-nutrilab.ics'); return toast(`${list.length} cita${list.length === 1 ? '' : 's'} exportada${list.length === 1 ? '' : 's'}`);
       }
       case 'new-plan': { const np = newPlan(d.id); save(); return go(`#/d/${np.id}`); }
       case 'ai-plan': return aiPlanSheet(d.id);

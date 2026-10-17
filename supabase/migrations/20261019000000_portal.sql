@@ -1,6 +1,6 @@
 -- NutriLab: acceso de los clientes a su dieta mediante un enlace privado (sin cuenta).
 -- El nutricionista crea o anula el enlace de cada cliente. Quien tenga el enlace solo puede ver la dieta,
--- el progreso de peso y la próxima revisión de ese cliente; nunca las notas privadas ni datos de otros clientes.
+-- el progreso de peso y la próxima cita de ese cliente; nunca las notas privadas ni datos de otros clientes.
 
 create table if not exists public.portal_links (
   token text primary key,
@@ -48,7 +48,8 @@ begin
 
   return jsonb_build_object(
     'client', jsonb_build_object('name', c ->> 'name', 'goal', c ->> 'goal', 'targetWeight', c ->> 'targetWeight',
-                                 'nextReview', c ->> 'nextReview', 'allergies', c ->> 'allergies'),
+                                 'nextReview', c ->> 'nextReview', 'reviewTime', c ->> 'reviewTime', 'reviewMins', c ->> 'reviewMins',
+                                 'reviewPlace', c ->> 'reviewPlace', 'allergies', c ->> 'allergies'),
     'plan', case when pl is null then null else jsonb_build_object('name', pl ->> 'name', 'notes', pl -> 'notes', 'days', pl -> 'days') end,
     'measures', ms,
     'nutritionist', nut

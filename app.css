@@ -409,3 +409,9 @@ body.gated { padding-bottom: 24px; }
 .gate-hero .hello { margin-bottom: 4px; }
 .check.small { font-size: 12.5px; color: var(--text-2); font-weight: 600; line-height: 1.35; }
 .note.viewing { display: flex; align-items: center; gap: 10px; position: sticky; top: calc(70px + var(--safe-t)); z-index: 6; box-shadow: var(--shadow); }
+/* citas */
+.stat .cal-btn{margin-top:8px;padding:6px 10px;font-size:12px}
+.stat .cal-btn svg{width:14px;height:14px}
+.appt{display:flex;gap:12px;align-items:center;padding:12px;border-radius:16px;background:var(--brand-soft, rgba(16,185,129,.1));margin-bottom:14px}
+.appt .ico{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--brand, #10b981);color:#fff;flex:none}
+.appt .ico svg{width:20px;height:20px}
