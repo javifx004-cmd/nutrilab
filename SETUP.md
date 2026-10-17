@@ -29,7 +29,7 @@ Hazlo primero en **modo de prueba de Stripe** (sin cobros reales) y, cuando todo
 ## 2. Stripe: el cobro
 
 1. Crea una cuenta en <https://dashboard.stripe.com/register> (deja activado **Modo de prueba**).
-2. **Catálogo de productos → Añadir producto**: nombre `NutriLab`, precio **19,99 €**, **Recurrente · Mensual**
+2. **Catálogo de productos → Añadir producto**: nombre `NutriLab`, precio **49,99 €**, **Recurrente · Mensual**
    (o el precio que quieras; cámbialo también en `config.js` → `price`). Guarda y copia el **ID del precio** (`price_…`).
 3. **Configuración → Métodos de pago**: activa **Tarjetas**, **Apple Pay**, **Google Pay** y **PayPal**
    (PayPal aparece en el pago si tu cuenta lo admite para suscripciones; Stripe te guía para conectarlo).

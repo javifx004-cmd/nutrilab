@@ -3,7 +3,7 @@
 window.NUTRILAB_CONFIG = {
   supabaseUrl: '',              // p. ej. https://abcd1234.supabase.co
   supabaseAnonKey: '',          // Project Settings → API Keys → anon / publishable
-  price: '19,99 € al mes',      // texto que se muestra en la app (el precio real se define en Stripe)
+  price: '49,99 € al mes',      // texto que se muestra en la app (el precio real se define en Stripe)
   trialDays: 14,                // días de prueba gratis (igual que en la base de datos)
   termsUrl: '',                 // enlace a tus condiciones del servicio
   privacyUrl: '',               // enlace a tu política de privacidad
