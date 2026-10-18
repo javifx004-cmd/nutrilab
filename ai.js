@@ -186,3 +186,44 @@ Lista de alimentos disponibles (valores por 100 g):
 ${foodList(foods)}`;
   return run({ apiKey, model, user, onProgress, signal });
 }
+
+// ---------------------------------------------------------------- valores de un alimento
+const FOOD_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['name', 'kcal', 'protein', 'carbs', 'fat', 'portion'],
+  properties: {
+    name: { type: 'string', description: 'Nombre claro del alimento en español, con su estado (crudo, cocido…) si importa' },
+    kcal: { type: 'number', description: 'Kilocalorías por 100 g' },
+    protein: { type: 'number', description: 'Proteínas en gramos por 100 g' },
+    carbs: { type: 'number', description: 'Hidratos de carbono en gramos por 100 g' },
+    fat: { type: 'number', description: 'Grasas en gramos por 100 g' },
+    portion: { type: 'number', description: 'Ración habitual en gramos' },
+  },
+};
+
+// Estima los valores por 100 g de un alimento o plato a partir de su nombre (rápido y económico: Haiku).
+export async function estimateFood({ apiKey, name, signal }) {
+  const Anthropic = await sdk();
+  const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true, maxRetries: 2 });
+  try {
+    const msg = await client.messages.create({
+      model: 'claude-haiku-5-5',
+      max_tokens: 4000,
+      output_config: { effort: 'low', format: { type: 'json_schema', schema: FOOD_SCHEMA } },
+      system: 'Eres experto en composición de alimentos. Das valores medios por 100 g de porción comestible, como en las tablas BEDCA o USDA, '
+        + 'para el alimento tal como se nombra (si no dice cocinado, crudo; si es un plato, la receta casera típica en España; si es un producto de marca, sus valores de etiqueta habituales). '
+        + 'Las kcal deben cuadrar con 4·proteínas + 4·hidratos + 9·grasas (salvo bebidas alcohólicas).',
+      messages: [{ role: 'user', content: `Alimento: ${name}` }],
+    }, { signal });
+    if (msg.stop_reason === 'refusal') throw new Error('La IA no ha podido calcular este alimento.');
+    const text = msg.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
+    const v = JSON.parse(text);
+    const r1 = (x) => Math.round(Math.max(0, Number(x) || 0) * 10) / 10;
+    return { name: String(v.name || name).trim(), kcal: r1(v.kcal), p: r1(v.protein), c: r1(v.carbs), f: r1(v.fat), portion: Math.round(r1(v.portion)) || 100, source: 'ia' };
+  } catch (err) {
+    if (err?.name === 'AbortError' || signal?.aborted) throw new Error('Cancelado');
+    if (err instanceof SyntaxError) throw new Error('La respuesta de la IA no se pudo leer. Vuelve a intentarlo.');
+    throw new Error(explain(Anthropic, err));
+  }
+}

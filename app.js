@@ -121,6 +121,7 @@
     mail: svg('<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/>'), wa: svg('<path d="M3 21l1.7-5.1A9 9 0 1 1 8 19.3z"/><path d="M9 10c0 3 2 5 5 5l1-1.5-2-1-1 1c-1 0-2-1-2-2l1-1-1-2z"/>'),
     camera: svg('<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>'),
     leaf: svg('<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10z"/><path d="M2 21c0-3 1.9-5.4 5.1-6"/>'),
+    barcode: svg('<path d="M4 5v14M7 5v14M10.5 5v14M14 5v14M17 5v14M20 5v14" stroke-width="1.6"/>'),
     star: svg('<path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/>'),
   };
 
@@ -818,35 +819,163 @@
 
   const curPlan = () => S.plans.find((x) => x.id === route().id);
 
-  function foodPicker(onPick) {
-    let q = '';
-    sheet('Añadir alimento', `
-      <div class="search-wrap">${ICON.search}<input class="search" id="pickSearch" type="search" placeholder="Buscar: pollo, arroz, yogur…" autocomplete="off"></div>
-      <div id="pickList"></div>
-      <button class="btn block" id="freeFood" style="margin-top:10px">${ICON.edit}Alimento libre (escribir valores)</button>`);
-    const draw = () => {
-      const qq = q.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
-      const list = allFoods().filter((f) => !qq || f.name.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').includes(qq)).slice(0, 60);
-      $('#pickList').innerHTML = list.map((f) => `<div class="list-item" data-pick="${f.id}"><div class="body"><div class="t">${esc(f.name)}${f.base ? '' : ' <span class="pill mute">mío</span>'}</div><div class="s num">${f.kcal} kcal · P ${f.p} · H ${f.c} · G ${f.f} <span class="muted">/100 g</span></div></div><span class="small muted">${f.portion || 100} g</span></div>`).join('') || '<p class="muted small">Sin resultados. Usa «Alimento libre» o añádelo en la pestaña Alimentos.</p>';
+  // ---------------------------------------------------------------- búsqueda de alimentos
+  // Búsqueda por palabras: «pechuga pollo», «tomates» o «yogur griego» encuentran su alimento aunque no se escriba igual.
+  const STOP = new Set(['de', 'del', 'la', 'el', 'las', 'los', 'con', 'y', 'a', 'al', 'en', 'un', 'una', 'para', 'tipo']);
+  const plain = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/[^a-z0-9% ]+/g, ' ');
+  const stem = (w) => (w.length > 4 && w.endsWith('es') ? w.slice(0, -2) : w.length > 3 && w.endsWith('s') ? w.slice(0, -1) : w);
+  const wordCache = new Map();
+  const words = (t) => { let w = wordCache.get(t); if (!w) { w = plain(t).split(/\s+/).filter((x) => x && !STOP.has(x)).map(stem); wordCache.set(t, w); } return w; };
+  function matchFoods(q, list = allFoods()) {
+    const qw = words(q), qp = plain(q).trim();
+    if (!qw.length) return list;
+    const out = [];
+    for (const f of list) {
+      const fw = words(f.name);
+      if (!qw.every((w) => fw.some((t) => t.startsWith(w) || (t.length >= 3 && w.startsWith(t))))) continue;
+      const score = (plain(f.name).startsWith(qp) ? 10 : 0) + qw.filter((w) => fw.includes(w)).length * 2 - (fw.length - qw.length) * 0.5 + (f.base ? 0 : 0.5);
+      out.push([score, f]);
+    }
+    return out.sort((a, b) => b[0] - a[0]).map((x) => x[1]);
+  }
+  // Mejor coincidencia en la base para un nombre escrito a mano (o null si no hay una clara).
+  function bestLocal(name) {
+    const top = matchFoods(name)[0];
+    return top && words(top.name).length - words(name).length <= 2 ? top : null;
+  }
+  let offMod = null;
+  const loadOff = async () => (offMod ??= await import('./foodsearch.js'));
+  const SRC = { off: 'Open Food Facts', ia: 'estimación de la IA' };
+  // Guarda en «Mis alimentos» lo encontrado en internet o con IA, para tenerlo después sin conexión.
+  function keepFood(v) {
+    const same = S.foods.find((x) => (v.code && x.code === v.code) || plain(x.name) === plain(v.name));
+    if (same) return same;
+    const f = { id: 'u' + uid(), name: v.name, cat: 'Mis alimentos', kcal: v.kcal, p: v.p, c: v.c, f: v.f, portion: v.portion || 100, ...(v.code ? { code: v.code } : {}), source: v.source };
+    S.foods.push(f); save(); return f;
+  }
+  const foodRow = (f, attr) => `<div class="list-item" ${attr}><div class="body"><div class="t">${esc(f.name)}${f.base ? '' : f.source === 'ia' ? ' <span class="pill ai-pill">IA</span>' : f.source === 'off' ? ' <span class="pill blue">súper</span>' : ' <span class="pill mute">mío</span>'}</div><div class="s num">${fmt(f.kcal, 0)} kcal · P ${fmt(f.p)} · H ${fmt(f.c)} · G ${fmt(f.f)} <span class="muted">/100 g</span></div></div><span class="small muted">${f.portion || 100} g</span></div>`;
+
+  // Valores automáticos para un nombre: base de NutriLab → IA (si está configurada) → Open Food Facts.
+  async function autoValues(name, { signal } = {}) {
+    const local = bestLocal(name);
+    if (local) return { ...local, source: 'base', base: !!local.base };
+    if (aiCfg.apiKey) return (await loadAi()).estimateFood({ apiKey: aiCfg.apiKey, name, signal });
+    const [top] = await (await loadOff()).searchProducts(name, { signal });
+    return top || null;
+  }
+  // Botón «Calcular» de un formulario con campos kcal/p/c/f (y opcionalmente ración).
+  function wireAutoCalc(form, { nameField = 'name', portionField } = {}) {
+    const note = form.querySelector('.calc-note'), btn = form.querySelector('.calc-btn');
+    let ctl = null;
+    const fill = (v) => {
+      for (const k of ['kcal', 'p', 'c', 'f']) form.elements[k].value = v[k];
+      if (portionField && v.portion && form.elements[portionField]) form.elements[portionField].value = v.portion;
     };
-    draw();
-    setTimeout(() => $('#pickSearch')?.focus(), 250);
-    $('#pickSearch').oninput = (e) => { q = e.target.value; draw(); };
-    $('#pickList').onclick = (e) => {
-      const el = e.target.closest('[data-pick]'); if (!el) return;
-      const f = idx().food.get(el.dataset.pick);
+    const run = async (auto) => {
+      const name = form.elements[nameField].value.trim();
+      if (!name) { if (!auto) toast('Escribe primero el nombre del alimento'); return; }
+      ctl?.abort(); ctl = new AbortController();
+      note.textContent = 'Calculando…'; btn.disabled = true;
+      try {
+        const v = await autoValues(name, { signal: ctl.signal });
+        if (!v) { note.textContent = 'No lo hemos encontrado. Escribe los valores de la etiqueta.'; return; }
+        fill(v); haptic();
+        note.innerHTML = v.source === 'base' ? `Valores de ${v.base ? 'la base de NutriLab' : 'tus alimentos'}: <b>${esc(v.name)}</b>.`
+          : v.source === 'ia' ? 'Estimación de la IA. Revísala si tienes la etiqueta.' : `De Open Food Facts: <b>${esc(v.name)}</b>.`;
+      } catch (err) { if (!ctl.signal.aborted) note.textContent = err.message || 'No se pudo calcular. Revisa la conexión.'; }
+      finally { btn.disabled = false; }
+    };
+    btn.onclick = () => run(false);
+    // Automático al escribir el nombre, si aún no hay valores
+    form.elements[nameField].addEventListener('change', () => { if (!form.elements.kcal.value) run(true); });
+  }
+
+  function foodPicker(onPick) {
+    let q = '', timer = 0, ctl = null, found = [];
+    sheet('Añadir alimento', `
+      <div class="search-wrap">${ICON.search}<input class="search" id="pickSearch" type="search" placeholder="Buscar: pollo, arroz, yogur, marca…" autocomplete="off"></div>
+      <div id="pickList"></div>
+      <div id="pickOnline"></div>
+      <div class="row nowrap" style="margin-top:10px"><button class="btn grow" id="scanFood">${ICON.barcode}Código de barras</button><button class="btn grow" id="freeFood">${ICON.edit}Otro alimento</button></div>`);
+    const ask = (f) => {
       const g = prompt(`Gramos de ${f.name}`, f.portion || 100);
       if (g == null) return;
       onPick({ name: f.name, foodId: f.id, grams: num(g) || f.portion || 100, household: '', per100: { kcal: f.kcal, p: f.p, c: f.c, f: f.f } });
     };
-    $('#freeFood').onclick = () => itemSheet(null, onPick);
+    const online = async () => {
+      const box = $('#pickOnline'); if (!box) return;
+      if (plain(q).trim().length < 3) { box.innerHTML = ''; return; }
+      box.innerHTML = `${aiCfg.apiKey ? `<button class="btn ai block" id="aiFood" style="margin:6px 0 4px">${ICON.ai}Calcular «${esc(q.trim())}» con IA</button>` : ''}
+        <div class="form-sec">Productos del supermercado</div><div id="offList"><p class="small muted"><span class="spinner sm"></span> Buscando…</p></div>`;
+      $('#aiFood')?.addEventListener('click', async (e) => {
+        e.target.disabled = true; e.target.textContent = 'Calculando…';
+        try { ask(keepFood(await (await loadAi()).estimateFood({ apiKey: aiCfg.apiKey, name: q.trim() }))); }
+        catch (err) { toast(err.message); e.target.disabled = false; e.target.textContent = 'Volver a intentar con IA'; }
+      });
+      ctl?.abort(); ctl = new AbortController();
+      try {
+        found = await (await loadOff()).searchProducts(q.trim(), { signal: ctl.signal });
+        const l = $('#offList'); if (!l) return;
+        l.innerHTML = found.length ? found.map((f, i) => foodRow(f, `data-off="${i}"`)).join('') + '<p class="small muted" style="margin:6px 0 0">Valores de etiqueta de Open Food Facts.</p>'
+          : '<p class="small muted">No hay productos con ese nombre.</p>';
+      } catch (err) {
+        const l = $('#offList'); if (l && !ctl.signal.aborted) l.innerHTML = `<p class="small muted">${navigator.onLine === false ? 'Sin conexión: no se pueden buscar productos.' : 'No se pudo buscar ahora mismo.'}</p>`;
+      }
+    };
+    const draw = () => {
+      const list = matchFoods(q).slice(0, 40);
+      $('#pickList').innerHTML = list.map((f) => foodRow(f, `data-pick="${f.id}"`)).join('')
+        || '<p class="muted small">No está en la base. Mira abajo los productos del supermercado' + (aiCfg.apiKey ? ' o calcúlalo con IA.' : '.') + '</p>';
+      clearTimeout(timer); timer = setTimeout(online, 450);
+    };
+    draw();
+    setTimeout(() => $('#pickSearch')?.focus(), 250);
+    $('#pickSearch').oninput = (e) => { q = e.target.value; draw(); };
+    $('#pickList').onclick = (e) => { const el = e.target.closest('[data-pick]'); if (el) ask(idx().food.get(el.dataset.pick)); };
+    $('#pickOnline').onclick = (e) => { const el = e.target.closest('[data-off]'); if (el) ask(keepFood(found[+el.dataset.off])); };
+    $('#freeFood').onclick = () => itemSheet(null, onPick, null, q.trim());
+    $('#scanFood').onclick = () => barcodeSheet((v) => ask(keepFood(v)));
   }
 
-  function itemSheet(item, onSave, onDelete) {
-    const it = item || { name: '', grams: 100, household: '', per100: { kcal: '', p: '', c: '', f: '' } };
-    sheet(item ? 'Editar alimento' : 'Alimento libre', `
+  // Código de barras: con la cámara (si el navegador lo permite) o escribiendo el número.
+  function barcodeSheet(onFound) {
+    const canScan = 'BarcodeDetector' in window && navigator.mediaDevices?.getUserMedia;
+    sheet('Código de barras', `
+      ${canScan ? '<div class="scan-box"><video id="scanVideo" playsinline muted></video><div class="scan-line"></div></div><p class="small muted" style="text-align:center">Apunta al código de barras del envase.</p>' : ''}
+      <form id="codeForm"><label class="f"><span>${canScan ? 'O escribe' : 'Escribe'} el número del código</span><input name="code" inputmode="numeric" pattern="[0-9 ]*" placeholder="8410000000000" autocomplete="off" required></label>
+      <button class="btn primary block">${ICON.search}Buscar producto</button></form><p class="small muted" id="codeNote"></p>`);
+    let busy = false;
+    const look = async (code) => {
+      if (busy) return; busy = true; $('#codeNote').textContent = 'Buscando…';
+      try { const v = await (await loadOff()).productByCode(code); closeSheet(); onFound(v); }
+      catch (err) { const n = $('#codeNote'); if (n) n.textContent = err.message || 'No se pudo buscar. Revisa la conexión.'; }
+      finally { busy = false; }
+    };
+    $('#codeForm').onsubmit = (e) => { e.preventDefault(); look(e.target.elements.code.value); };
+    if (!canScan) return;
+    (async () => {
+      const video = $('#scanVideo');
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        video.srcObject = stream; await video.play();
+        const det = new window.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e'] });
+        const tick = async () => {
+          if (!video.isConnected) { stream.getTracks().forEach((t) => t.stop()); return; } // se cerró la ventana
+          try { const [c] = await det.detect(video); if (c?.rawValue && !busy) { haptic(); look(c.rawValue); } } catch { /* fotograma no válido */ }
+          setTimeout(tick, 250);
+        };
+        tick();
+      } catch { video.closest('.scan-box')?.remove(); }
+    })();
+  }
+
+  function itemSheet(item, onSave, onDelete, presetName = '') {
+    const it = item || { name: presetName, grams: 100, household: '', per100: { kcal: '', p: '', c: '', f: '' } };
+    sheet(item ? 'Editar alimento' : 'Otro alimento', `
       <form id="itemForm">
-        <label class="f"><span>Alimento</span><input name="name" required value="${esc(it.name)}"></label>
+        <div class="name-calc"><label class="f grow"><span>Alimento</span><input name="name" required value="${esc(it.name)}" placeholder="Pollo al curry, yogur proteico…" autocomplete="off"></label>
+          <button type="button" class="btn calc-btn">${ICON.ai}Calcular</button></div>
+        <p class="small muted calc-note">Escribe el nombre y pulsa «Calcular»: rellenamos los valores por 100 g.</p>
         <div class="grid2"><label class="f"><span>Cantidad (g)</span><input name="grams" inputmode="decimal" required value="${esc(it.grams)}"></label>
           <label class="f"><span>Medida casera</span><input name="household" value="${esc(it.household)}" placeholder="1 taza, 2 rebanadas…"></label></div>
         <div class="form-sec">Valores por 100 g</div>
@@ -857,6 +986,8 @@
         <button class="btn primary block" type="submit">${ICON.check}Guardar</button>
       </form>
       ${item ? `<div class="row nowrap" style="margin-top:10px"><button class="btn grow" id="swapItem">Cambiar alimento</button><button class="btn danger grow" id="delItem">${ICON.trash}Quitar</button></div>` : ''}`);
+    wireAutoCalc($('#itemForm'));
+    if (!item && presetName) $('#itemForm .calc-btn').click();
     $('#itemForm').onsubmit = (e) => {
       e.preventDefault();
       const f = Object.fromEntries(new FormData(e.target));
@@ -1043,15 +1174,16 @@
       <p class="small muted" style="text-align:center">Valores aproximados por 100 g. Puedes añadir tus propios alimentos y productos.</p>`;
   }
   function foodList() {
-    const q = ui.foodQuery.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
-    const list = allFoods().filter((f) => (ui.foodCat === 'Todas' || (ui.foodCat === 'Mis alimentos' ? !f.base : f.cat === ui.foodCat)) && (!q || f.name.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').includes(q)));
+    const list = matchFoods(ui.foodQuery, allFoods().filter((f) => ui.foodCat === 'Todas' || (ui.foodCat === 'Mis alimentos' ? !f.base : f.cat === ui.foodCat)));
     return list.map((f) => `<div class="list-item" ${f.base ? '' : `data-food="${f.id}"`}><div class="body"><div class="t">${esc(f.name)}</div><div class="s">${esc(f.cat || 'Mis alimentos')}</div></div>
       <div class="end small num"><b>${f.kcal}</b> kcal<div class="muted">P ${f.p} · H ${f.c} · G ${f.f}</div></div></div>`).join('') || '<p class="muted small">Sin resultados.</p>';
   }
   function foodSheet(id) {
     const f = id ? S.foods.find((x) => x.id === id) : { cat: 'Mis alimentos', portion: 100 };
     sheet(id ? 'Editar alimento' : 'Nuevo alimento', `
-      <form id="foodForm"><label class="f"><span>Nombre</span><input name="name" required value="${esc(f.name)}" placeholder="Pan proteico Mercadona"></label>
+      <form id="foodForm"><div class="name-calc"><label class="f grow"><span>Nombre</span><input name="name" required value="${esc(f.name)}" placeholder="Pan proteico Mercadona" autocomplete="off"></label>
+          <button type="button" class="btn calc-btn">${ICON.ai}Calcular</button></div>
+        <p class="small muted calc-note">Escribe el nombre y pulsa «Calcular», o <a href="#" id="foodScan">escanea el código de barras</a>.</p>
         <div class="form-sec">Por 100 g</div>
         <div class="grid2"><label class="f"><span>Kcal</span><input name="kcal" inputmode="decimal" required value="${esc(f.kcal)}"></label>
           <label class="f"><span>Proteínas (g)</span><input name="p" inputmode="decimal" required value="${esc(f.p)}"></label>
@@ -1060,10 +1192,16 @@
           <label class="f"><span>Ración habitual (g)</span><input name="portion" inputmode="decimal" value="${esc(f.portion)}"></label></div>
         <button class="btn primary block">${ICON.check}Guardar</button></form>
       ${id ? `<button class="btn danger block" id="delFood" style="margin-top:10px">${ICON.trash}Eliminar</button>` : ''}`);
+    wireAutoCalc($('#foodForm'), { portionField: 'portion' });
+    $('#foodScan').onclick = (e) => {
+      e.preventDefault();
+      const draft = Object.fromEntries(new FormData($('#foodForm')));
+      barcodeSheet((v) => { foodSheet(id); const fm = $('#foodForm'); fm.elements.name.value = v.name || draft.name; for (const k of ['kcal', 'p', 'c', 'f']) fm.elements[k].value = v[k]; fm.elements.portion.value = v.portion || 100; fm.querySelector('.calc-note').innerHTML = `De Open Food Facts: <b>${esc(v.name)}</b>.`; fm.dataset.code = v.code || ''; });
+    };
     $('#foodForm').onsubmit = (e) => {
       e.preventDefault();
       const v = Object.fromEntries(new FormData(e.target));
-      const data = { name: v.name, cat: 'Mis alimentos', kcal: num(v.kcal), p: num(v.p), c: num(v.c), f: num(v.f), portion: num(v.portion) || 100 };
+      const data = { name: v.name, cat: 'Mis alimentos', kcal: num(v.kcal), p: num(v.p), c: num(v.c), f: num(v.f), portion: num(v.portion) || 100, ...(e.target.dataset.code ? { code: e.target.dataset.code } : {}) };
       if (id) Object.assign(f, data); else S.foods.push({ id: 'u' + uid(), ...data });
       save(); closeSheet(); render(); toast('Alimento guardado');
     };
