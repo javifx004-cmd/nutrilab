@@ -8,7 +8,7 @@ window.NUTRILAB_CONFIG = {
   trialDays: 14,                // días de prueba gratis (igual que en la base de datos)
   paypalClientId: '',           // PayPal Developer → Apps & Credentials → Client ID (vacío = sin PayPal)
   paypalPlanId: '',             // ID del plan de suscripción mensual (P-…)
-  bizumPhone: '',               // tu número de Bizum, p. ej. '600 123 456' (vacío = sin Bizum)
+  bizumPhone: '685 426 211',  // tu número de Bizum, p. ej. '600 123 456' (vacío = sin Bizum)
   bizumName: '',                // nombre que verá al enviar el Bizum, p. ej. 'Javier C.'
   bizumWhatsApp: true,          // al avisar del Bizum, abrir WhatsApp para avisarte a ese mismo número
   termsUrl: '',                 // enlace a tus condiciones del servicio
