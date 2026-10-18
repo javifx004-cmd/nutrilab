@@ -1,6 +1,6 @@
 // Funciona sin conexión: responde al instante desde la caché y actualiza en segundo plano.
 // Las peticiones a otros orígenes (GitHub, API de Claude) no se interceptan.
-const CACHE = 'nutrilab-v9';
+const CACHE = 'nutrilab-v10';
 const ASSETS = ['./', 'index.html', 'app.css', 'app.js', 'config.js', 'files.js', 'foods.js', 'foodsearch.js', 'ai.js', 'cloud.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/apple-touch-icon.png', 'vendor/fonts/plus-jakarta-sans.woff2'];
 
 self.addEventListener('install', (e) => {

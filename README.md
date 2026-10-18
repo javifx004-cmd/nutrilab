@@ -15,8 +15,8 @@ App web instalable (PWA) para nutricionistas.
 - **Dietas con IA (Claude)**: genera un plan de 1 a 7 días con los datos del cliente, respetando alergias y gustos,
   o pide cambios sobre una dieta existente. Necesita una clave de API de Anthropic (Ajustes → Inteligencia artificial).
 - **Entrega al cliente**: PDF con tu marca, o texto por WhatsApp.
-- **App de pago para nutricionistas** (opcional): cuentas con email, 14 días de prueba y suscripción mensual con Stripe
-  (tarjeta, Apple Pay, Google Pay o PayPal). Cada nutricionista guarda sus clientes, mediciones, fotos y dietas en la
+- **App de pago para nutricionistas** (opcional): cuentas con email, 14 días de prueba y pago con PayPal (suscripción mensual) o Bizum (mes a mes)
+  (con PayPal también se puede pagar con tarjeta). Cada nutricionista guarda sus clientes, mediciones, fotos y dietas en la
   nube (Supabase, en la UE), separados del resto y en todos sus dispositivos. Puesta en marcha: [SETUP.md](SETUP.md).
 - **Enlace para el cliente**: cada cliente puede ver su dieta, su progreso y su próxima revisión desde el móvil con un
   enlace privado que le envía su nutricionista (sin registrarse, solo lectura, se puede anular).

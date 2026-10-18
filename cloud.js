@@ -57,13 +57,14 @@ export async function profile(uid) {
   return data;
 }
 
-// Acceso: suscripción activa, unos días de margen si falla un cobro, o prueba gratuita vigente (igual que en la base de datos).
+// Acceso: suscripción activa, unos días de margen si falla un cobro, meses pagados con Bizum o prueba gratuita vigente (igual que en la base de datos).
 export function hasAccess(p) {
   if (!p) return false;
   if (p.is_admin) return true; // la cuenta del administrador es gratuita
   const now = Date.now();
   if (['active', 'trialing'].includes(p.subscription_status)) return true;
   if (p.subscription_status === 'past_due' && (!p.current_period_end || Date.parse(p.current_period_end) > now - 7 * 864e5)) return true;
+  if (p.paid_until && Date.parse(p.paid_until) > now) return true;
   return !!p.trial_ends_at && Date.parse(p.trial_ends_at) > now;
 }
 
@@ -98,8 +99,8 @@ export async function removePhotos(uid, ids) {
 }
 
 // Funciones del servidor: create-checkout (pagar) y billing-portal (gestionar suscripción).
-export async function callFunction(name) {
-  const { data, error } = await sb.functions.invoke(name, { method: 'POST' });
+export async function callFunction(name, body) {
+  const { data, error } = await sb.functions.invoke(name, { method: 'POST', ...(body ? { body } : {}) });
   if (error) {
     let msg = 'No se pudo conectar con el servidor';
     try { msg = (await error.context.json()).error || msg; } catch { /* sin cuerpo */ }
@@ -125,6 +126,31 @@ export async function adminView(target, reason) {
 export async function accessLog(uid) {
   const { data, error } = await sb.from('admin_access_log').select('reason, at').eq('target_id', uid).order('at', { ascending: false }).limit(20);
   return error ? [] : data || [];
+}
+
+// ---------------------------------------------------------------- Bizum (se confirma a mano)
+// Aviso del nutricionista: «ya he enviado el Bizum». Solo puede tener uno pendiente.
+export async function pendingBizum(uid) {
+  const { data } = await sb.from('payment_requests').select('id, created_at').eq('user_id', uid).eq('status', 'pending').order('created_at', { ascending: false }).limit(1);
+  return data?.[0] || null;
+}
+export async function notifyBizum(uid) {
+  const { error } = await sb.from('payment_requests').insert({ user_id: uid, method: 'bizum' });
+  if (error) throw new Error(error.code === '23505' ? 'Ya nos avisaste de un Bizum. Lo confirmaremos en breve.' : 'No se pudo enviar el aviso. Inténtalo de nuevo.');
+}
+export async function adminPendingBizum() {
+  const { data, error } = await sb.from('payment_requests').select('id, user_id, amount_cents, created_at').eq('status', 'pending').order('created_at');
+  return error ? [] : data || [];
+}
+// Suma 1 mes al nutricionista (y marca su aviso como confirmado si lo había). Devuelve la nueva fecha.
+export async function adminConfirmBizum(user, requestId = null) {
+  const { data, error } = await sb.rpc('admin_confirm_payment', { p_user: user, p_request: requestId, p_months: 1 });
+  if (error) throw new Error(error.message || 'No se pudo confirmar');
+  return data;
+}
+export async function adminRejectBizum(requestId) {
+  const { error } = await sb.rpc('admin_reject_payment', { p_request: requestId });
+  if (error) throw new Error(error.message || 'No se pudo actualizar');
 }
 
 // ---------------------------------------------------------------- enlace del cliente (ver su dieta sin cuenta)

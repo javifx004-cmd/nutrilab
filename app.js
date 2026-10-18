@@ -360,7 +360,7 @@
         <span class="leaf">${ICON.leaf}</span>
       </section>`;
     const trialNote = CLOUD && acct?.profile && !acct.profile.is_admin && !viewing && !['active', 'trialing', 'past_due'].includes(acct.profile.subscription_status) && cloud.hasAccess(acct.profile)
-      ? `<div class="note" style="display:flex;gap:10px;align-items:center"><span class="grow">Prueba gratis: te quedan <b>${daysLeft(acct.profile.trial_ends_at)} días</b>.</span><button class="btn sm primary" data-act="checkout">Suscribirme</button></div>` : '';
+      ? `<div class="note" style="display:flex;gap:10px;align-items:center"><span class="grow">Prueba gratis: te quedan <b>${daysLeft(acct.profile.trial_ends_at)} días</b>.</span><button class="btn sm primary" data-act="pay">Suscribirme</button></div>` : '';
     if (!S.clients.length) return hero + trialNote + `
       <div class="empty"><div class="art">${ICON.users}</div><h3>Empieza con tu primer cliente</h3>
         <p>Guarda sus datos, calcula sus calorías y macros, crea dietas a mano o con IA y sigue su progreso con gráficas y fotos.</p>
@@ -1561,23 +1561,88 @@
     if (flagged) save();
   }
 
-  async function goPay(fn) {
-    toast('Abriendo la página segura de Stripe…');
-    try { const { url } = await cloud.callFunction(fn); location.href = url; } catch (err) { toast(err.message); }
+  // ---------------------------------------------------------------- pagos: PayPal (suscripción) o Bizum (mes a mes)
+  const paidUntil = (p) => (p?.paid_until && Date.parse(p.paid_until) > Date.now() ? p.paid_until : null);
+  const BIZUM = `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect width="24" height="24" rx="6" fill="#05c3dd"/><path d="M8 6.5v11M8 6.5h4.2a2.7 2.7 0 0 1 0 5.4H8m0 0h4.8a2.8 2.8 0 0 1 0 5.6H8" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const PAYPAL = `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect width="24" height="24" rx="6" fill="#003087"/><path d="M9.2 18.5l1.6-10h4c2 0 3.2 1.1 2.9 3-.4 2.3-2 3.3-4.2 3.3h-1.7l-.6 3.7z" fill="#fff"/><path d="M7 16.5l1.6-10" stroke="#009cde" stroke-width="2" stroke-linecap="round"/></svg>`;
+  const payButtons = (renew = false) => `<div class="pay-options">
+      ${CFG.paypalClientId ? `<button class="btn block pay-btn" data-act="pay-paypal">${PAYPAL}<span>PayPal o tarjeta · ${esc(CFG.price || '')}<small>Se renueva sola cada mes. Cancela cuando quieras.</small></span></button>` : ''}
+      ${CFG.bizumPhone ? `<button class="btn block pay-btn" data-act="pay-bizum">${BIZUM}<span>${renew ? 'Añadir 1 mes con Bizum' : 'Bizum · pagar 1 mes'}<small>Sin renovación automática: pagas cada mes.</small></span></button>` : ''}
+    </div>`;
+
+  // PayPal: botones oficiales de PayPal (se cargan solo al usarlos). PayPal permite pagar también con tarjeta sin cuenta.
+  let paypalSdk = null;
+  const loadPaypal = () => (paypalSdk ??= new Promise((ok, ko) => {
+    const s = document.createElement('script');
+    s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(CFG.paypalClientId)}&vault=true&intent=subscription&currency=EUR&locale=es_ES`;
+    s.onload = () => ok(window.paypal); s.onerror = () => { paypalSdk = null; ko(new Error('No se pudo cargar PayPal. Revisa tu conexión.')); };
+    document.head.appendChild(s);
+  }));
+  async function paypalSheet() {
+    sheet('Pagar con PayPal', `<p class="small muted" style="margin:0 0 12px">Suscripción de <b>${esc(CFG.price || '')}</b>. Puedes pagar con tu cuenta de PayPal o con tarjeta. Se renueva sola cada mes y puedes cancelarla cuando quieras desde Ajustes.</p>
+      <div id="ppButtons"><p class="small muted"><span class="spinner sm"></span> Cargando PayPal…</p></div>`);
+    try {
+      const pp = await loadPaypal();
+      const box = $('#ppButtons'); if (!box) return;
+      box.innerHTML = '';
+      await pp.Buttons({
+        style: { shape: 'pill', label: 'subscribe', height: 48 },
+        createSubscription: (data, actions) => actions.subscription.create({ plan_id: CFG.paypalPlanId, custom_id: acct.user.id, application_context: { brand_name: 'NutriLab', locale: 'es-ES', shipping_preference: 'NO_SHIPPING' } }),
+        onApprove: async (data) => {
+          closeSheet(); toast('Activando tu suscripción…');
+          try { await cloud.callFunction('paypal', { action: 'confirm', subscriptionId: data.subscriptionID }); } catch (err) { toast(err.message); }
+          afterPayment();
+        },
+        onError: () => toast('PayPal no ha podido completar el pago. Inténtalo de nuevo.'),
+      }).render('#ppButtons');
+    } catch (err) { const b = $('#ppButtons'); if (b) b.innerHTML = `<p class="small">${esc(err.message)}</p>`; }
   }
 
-  // Al volver de Stripe: esperar a que llegue el aviso del pago y activar la cuenta.
+  // Bizum: se envía a tu número y el administrador lo confirma (Bizum no permite cobros automáticos sin un TPV del banco).
+  async function bizumSheet() {
+    const email = acct?.user.email || '';
+    const pending = await cloud.pendingBizum(acct.user.id).catch(() => null);
+    const tel = String(CFG.bizumPhone).replace(/[^\d]/g, '');
+    sheet('Pagar con Bizum', `
+      <div class="bizum-box">${BIZUM}<div><div class="small muted">Envía un Bizum de</div><b class="num" style="font-size:24px">${esc(CFG.price?.split(' ')[0] || '49,99')} €</b></div></div>
+      <ol class="steps">
+        <li>Abre la app de tu banco → <b>Bizum</b> → <b>Enviar</b>.</li>
+        <li>Al número <b class="num">${esc(CFG.bizumPhone)}</b>${CFG.bizumName ? ` (${esc(CFG.bizumName)})` : ''} <button class="btn sm ghost" data-copy="${esc(tel)}">Copiar</button></li>
+        <li>En el concepto escribe: <b>NutriLab ${esc(email)}</b> <button class="btn sm ghost" data-copy="NutriLab ${esc(email)}">Copiar</button></li>
+        <li>Pulsa <b>«Ya lo he enviado»</b>. En cuanto lo confirmemos se suma <b>1 mes</b> a tu cuenta.</li>
+      </ol>
+      ${pending ? `<div class="note">Ya nos avisaste de un Bizum el ${esc(new Date(pending.created_at).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }))}. Lo confirmaremos en cuanto lo veamos.</div>`
+        : `<button class="btn primary block" id="bizumSent">${ICON.check}Ya lo he enviado</button>`}`);
+    $$('.sheet [data-copy]').forEach((b) => (b.onclick = () => copyText(b.dataset.copy)));
+    $('#bizumSent')?.addEventListener('click', async (e) => {
+      e.target.disabled = true;
+      try {
+        await cloud.notifyBizum(acct.user.id);
+        closeSheet(); render(); toast('¡Gracias! Te avisaremos al confirmarlo');
+        // Aviso opcional al administrador por WhatsApp
+        if (CFG.bizumWhatsApp !== false && tel) window.open(`https://wa.me/${tel.replace(/^(?=[67]\d{8}$)/, '34')}?text=${encodeURIComponent(`Hola, he enviado el Bizum de NutriLab. Mi cuenta: ${email}`)}`, '_blank', 'noopener');
+      } catch (err) { toast(err.message); e.target.disabled = false; }
+    });
+  }
+
+  // Tras pagar: esperar a que el servidor registre el pago y activar la cuenta.
   async function afterPayment() {
-    toast('¡Gracias! Activando tu suscripción…');
-    for (let i = 0; i < 10; i++) {
+    toast('Comprobando tu pago…');
+    for (let i = 0; i < 6; i++) {
       await refreshProfile();
-      if (['active', 'trialing'].includes(acct.profile?.subscription_status)) break;
+      if (cloud.hasAccess(acct.profile) && acct.profile?.subscription_status !== 'trial') break;
       await new Promise((r) => setTimeout(r, 2000));
     }
     gate = cloud.hasAccess(acct.profile) ? null : 'paywall';
     render();
-    toast(['active', 'trialing'].includes(acct.profile?.subscription_status) ? 'Suscripción activa ✓' : 'Aún no hemos recibido el pago. Pulsa «Ya he pagado» en un momento.');
+    const p = acct.profile || {};
+    toast(p.subscription_status === 'active' ? 'Suscripción activa ✓' : paidUntil(p) ? `Acceso hasta el ${fmtDate(p.paid_until.slice(0, 10), true)} ✓` : 'Aún no nos consta el pago. Si pagaste con Bizum, lo confirmaremos en breve.');
     if (canWrite()) cloudSync();
+  }
+
+  async function cancelPaypal() {
+    if (!confirm('¿Cancelar la suscripción de PayPal? No se te cobrará más y mantienes el acceso hasta el final del mes ya pagado.')) return;
+    try { await cloud.callFunction('paypal', { action: 'cancel' }); await refreshProfile(); render(); toast('Suscripción cancelada'); } catch (err) { toast(err.message); }
   }
 
   async function logout() {
@@ -1603,19 +1668,22 @@
         <div class="row nowrap"><button class="btn primary grow" data-nav="#/admin">Panel de administración</button><button class="btn" data-act="logout">Cerrar sesión</button></div>
         <p class="small muted" style="margin:12px 0 0">☁ ${sync.error ? '⚠ ' + esc(sync.error) : 'Tus datos se guardan en tu cuenta y en todos tus dispositivos.'}</p></div>`;
     }
-    if (st === 'active' || st === 'trialing') {
-      pill = p.cancel_at_period_end ? '<span class="pill amber">Se cancela</span>' : '<span class="pill green">Suscripción activa</span>';
-      info = p.current_period_end ? `${p.cancel_at_period_end ? 'Acceso hasta' : 'Se renueva el'} ${esc(fmtDate(p.current_period_end.slice(0, 10), true))}` : '';
-    } else if (st === 'past_due') { pill = '<span class="pill red">Pago pendiente</span>'; info = 'Actualiza tu tarjeta para no perder el acceso.'; }
+    const pu = paidUntil(p);
+    if (st === 'active') {
+      pill = '<span class="pill green">Suscripción activa</span>';
+      info = `PayPal${p.current_period_end ? ` · se renueva el ${esc(fmtDate(p.current_period_end.slice(0, 10), true))}` : ''}`;
+    } else if (st === 'past_due') { pill = '<span class="pill red">Pago pendiente</span>'; info = 'PayPal no ha podido cobrar la cuota. Revisa tu forma de pago en PayPal.'; }
+    else if (pu) { pill = '<span class="pill green">Pagado</span>'; info = `Acceso hasta el ${esc(fmtDate(pu.slice(0, 10), true))}`; }
     else if (cloud.hasAccess(p)) { pill = '<span class="pill blue">Prueba gratis</span>'; info = `Te quedan ${daysLeft(p.trial_ends_at)} días de prueba.`; }
-    else { pill = '<span class="pill red">Sin suscripción</span>'; info = 'Suscríbete para seguir trabajando.'; }
-    const paying = ['active', 'trialing', 'past_due'].includes(st);
+    else { pill = '<span class="pill red">Sin suscripción</span>'; info = 'Elige cómo pagar para seguir trabajando.'; }
+    const subscribed = ['active', 'past_due'].includes(st);
     return `<div class="card"><div class="card-head"><h3>Tu cuenta</h3>${pill}</div>
       <p style="margin:0 0 4px;font-weight:700">${esc(p.full_name || acct?.user.email || '')}</p>
       <p class="small muted" style="margin:0 0 12px">${esc(acct?.user.email || '')}${info ? ' · ' + info : ''}</p>
-      <div class="row nowrap">
-        ${paying ? `<button class="btn grow" data-act="billing">Gestionar suscripción</button>` : `<button class="btn primary grow" data-act="checkout">Suscribirme · ${esc(CFG.price || '')}</button>`}
-        <button class="btn" data-act="logout">Cerrar sesión</button>
+      ${subscribed ? '' : payButtons(!!pu)}
+      <div class="row nowrap" style="margin-top:8px">
+        ${subscribed ? `<button class="btn grow" data-act="cancel-paypal">Cancelar suscripción</button>` : ''}
+        <button class="btn ${subscribed ? '' : 'grow'}" data-act="logout">Cerrar sesión</button>
       </div>
       <p class="small muted" style="margin:12px 0 0">☁ ${sync.error ? '⚠ ' + esc(sync.error) : 'Tus clientes, mediciones, fotos y dietas se guardan en tu cuenta y en todos tus dispositivos.'}${sync.last ? ` · ${new Date(sync.last).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}` : ''}</p>
       <div id="accessLog"></div>
@@ -1628,25 +1696,32 @@
 
   function subState(r) {
     if (r.is_admin) return ['Administrador', 'green'];
-    if (['active', 'trialing'].includes(r.subscription_status)) return [r.cancel_at_period_end ? 'Se cancela' : 'Activa', r.cancel_at_period_end ? 'amber' : 'green'];
+    if (['active', 'trialing'].includes(r.subscription_status)) return ['PayPal · activa', 'green'];
     if (r.subscription_status === 'past_due') return ['Impago', 'red'];
+    if (paidUntil(r)) return [`Pagado hasta ${fmtDate(String(r.paid_until).slice(0, 10))}`, 'green'];
     if (Date.parse(r.trial_ends_at) > Date.now()) return [`Prueba · ${daysLeft(r.trial_ends_at)} días`, 'blue'];
     return ['Sin suscripción', 'mute'];
   }
 
   function renderAdmin() {
     if (!adminRows) {
-      cloud.adminList().then((rows) => { adminRows = rows; if (route().view === 'admin') render(); }).catch((err) => toast(err.message));
+      Promise.all([cloud.adminList(), cloud.adminPendingBizum()]).then(([rows, pend]) => { adminRows = rows; adminRows.pending = pend; if (route().view === 'admin') render(); }).catch((err) => toast(err.message));
       return `<div class="ai-progress"><div class="spinner"></div><b>Cargando…</b></div>`;
     }
     const others = adminRows.filter((r) => !r.is_admin);
-    const paying = others.filter((r) => ['active', 'trialing'].includes(r.subscription_status));
-    const trial = others.filter((r) => !['active', 'trialing', 'past_due'].includes(r.subscription_status) && Date.parse(r.trial_ends_at) > Date.now());
+    const paying = others.filter((r) => ['active', 'trialing'].includes(r.subscription_status) || paidUntil(r));
+    const trial = others.filter((r) => !paying.includes(r) && r.subscription_status !== 'past_due' && Date.parse(r.trial_ends_at) > Date.now());
     const due = others.filter((r) => r.subscription_status === 'past_due');
-    const mrr = paying.filter((r) => !r.cancel_at_period_end).length * (num(CFG.priceAmount) || 0);
+    const mrr = paying.length * (num(CFG.priceAmount) || 0);
+    const pend = adminRows.pending || [];
+    const who = (uid) => others.find((r) => r.id === uid) || {};
     return `
+      ${pend.length ? `<div class="card"><div class="card-head"><h3>Bizum por confirmar</h3><span class="pill amber">${pend.length}</span></div>
+        <p class="small muted" style="margin:-4px 0 8px">Comprueba en tu banco que has recibido el Bizum antes de confirmarlo.</p>
+        ${pend.map((q) => `<div class="list-item"><div class="body"><div class="t">${esc(who(q.user_id).full_name || who(q.user_id).email || q.user_id)}</div><div class="s">${esc(who(q.user_id).email || '')} · ${esc(new Date(q.created_at).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }))} · ${fmt(q.amount_cents / 100, 2)} €</div></div>
+          <button class="btn sm primary" data-act="bizum-ok" data-id="${q.id}" data-user="${esc(q.user_id)}">+1 mes</button><button class="btn sm ghost" data-act="bizum-no" data-id="${q.id}">No recibido</button></div>`).join('')}</div>` : ''}
       <div class="stats two">
-        <div class="stat"><div class="l">Suscriptores activos</div><div class="v num">${paying.length}</div><div class="s">${others.length} registrado${others.length === 1 ? '' : 's'}</div></div>
+        <div class="stat"><div class="l">Clientes que pagan</div><div class="v num">${paying.length}</div><div class="s">${others.length} registrado${others.length === 1 ? '' : 's'}</div></div>
         <div class="stat"><div class="l">Ingresos al mes</div><div class="v num">${mrr ? fmt(mrr, 2) + ' €' : '—'}</div><div class="s">estimado, antes de comisiones</div></div>
         <div class="stat"><div class="l">En prueba</div><div class="v num">${trial.length}</div></div>
         <div class="stat"><div class="l">Impagos</div><div class="v num ${due.length ? 'neg' : ''}">${due.length}</div></div>
@@ -1657,7 +1732,7 @@
           <div class="body"><div class="name">${esc(r.full_name || r.email)}</div>
             <div class="meta"><span class="pill ${cls}">${esc(label)}</span><span>${r.clients} cliente${r.clients === 1 ? '' : 's'}</span><span>· desde ${esc(fmtDate(String(r.created_at).slice(0, 10)))}</span></div></div></div>`; }).join('')
         : `<div class="empty"><div class="art">${ICON.users}</div><h3>Aún no hay nutricionistas</h3><p>Cuando alguien se registre aparecerá aquí.</p></div>`}
-      <p class="small muted" style="text-align:center">Los cobros, facturas y reembolsos se gestionan en el panel de Stripe.</p>`;
+      <p class="small muted" style="text-align:center">Las suscripciones y reembolsos de PayPal se gestionan en tu cuenta de PayPal. Los Bizum, en tu banco.</p>`;
   }
 
   function adminSheet(id) {
@@ -1668,13 +1743,15 @@
       <table class="t"><tbody>
         <tr><th>Email</th><td>${esc(r.email)}</td></tr>
         <tr><th>Registro</th><td>${esc(fmtDate(String(r.created_at).slice(0, 10), true))}</td></tr>
-        ${r.current_period_end ? `<tr><th>${r.cancel_at_period_end ? 'Acceso hasta' : 'Renueva'}</th><td>${esc(fmtDate(String(r.current_period_end).slice(0, 10), true))}</td></tr>` : ''}
+        ${r.current_period_end && ['active', 'past_due'].includes(r.subscription_status) ? `<tr><th>PayPal renueva</th><td>${esc(fmtDate(String(r.current_period_end).slice(0, 10), true))}</td></tr>` : ''}
+        ${paidUntil(r) ? `<tr><th>Pagado hasta</th><td>${esc(fmtDate(String(r.paid_until).slice(0, 10), true))}</td></tr>` : ''}
         <tr><th>Clientes</th><td>${r.clients}</td></tr><tr><th>Dietas</th><td>${r.plans}</td></tr>
         <tr><th>Última actividad</th><td>${r.data_updated_at ? esc(new Date(r.data_updated_at).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })) : '—'}</td></tr>
       </tbody></table>
       <div class="menu" style="margin-top:14px">
         <a class="btn" href="mailto:${esc(r.email)}">${ICON.mail}Escribirle un email</a>
         <button class="btn" id="viewData">${ICON.users}Ver sus datos (solo lectura)</button>
+        <button class="btn" data-act="bizum-ok" data-user="${esc(r.id)}">${BIZUM}He recibido su Bizum: +1 mes</button>
       </div>
       <p class="small muted">Son datos de salud de sus clientes: entra solo por un motivo justificado (soporte, incidencia). Cada acceso queda registrado y el nutricionista lo verá en su app.</p>`);
     $('#viewData').onclick = () => {
@@ -1736,8 +1813,9 @@
         <p class="muted" style="margin:0 0 6px">Suscríbete para seguir trabajando con tus clientes. Tus datos están a salvo.</p>
         <div class="kcal-big" style="margin:14px 0 4px">${esc(CFG.price || '')}</div>
         <ul class="steps" style="text-align:left;max-width:320px;margin:14px auto">
-          <li>Clientes, mediciones y fotos ilimitados</li><li>Dietas manuales y con IA, en PDF con tu marca</li><li>Todo sincronizado en tu móvil, tablet y PC</li><li>Pago con tarjeta, Apple Pay, Google Pay o PayPal. Cancela cuando quieras</li></ul>
-        <button class="btn primary block" data-act="${p.subscription_status === 'past_due' ? 'billing' : 'checkout'}">${p.subscription_status === 'past_due' ? 'Actualizar forma de pago' : 'Suscribirme'}</button>
+          <li>Clientes, mediciones y fotos ilimitados</li><li>Dietas manuales y con IA, en PDF</li><li>Todo sincronizado en tu móvil, tablet y PC</li><li>Paga con PayPal (o tarjeta) cada mes automáticamente, o con Bizum mes a mes</li></ul>
+        ${p.subscription_status === 'past_due' ? '<p class="small muted">PayPal no ha podido cobrar tu cuota. Revisa tu forma de pago en PayPal o paga este mes con Bizum.</p>' : ''}
+        ${payButtons()}
         <div class="row nowrap" style="margin-top:10px"><button class="btn grow" data-act="recheck">Ya he pagado</button><button class="btn grow" data-act="export">Exportar mis datos</button></div>
         <button class="btn ghost block" data-act="logout" style="margin-top:6px">Cerrar sesión</button>
       </div>`;
@@ -1875,7 +1953,7 @@
     if (viewing && (d.measure || d.item || d.food || (d.act && !['exit-view', 'print-plan', 'share-plan', 'logout'].includes(d.act)))) {
       e.preventDefault(); return toast('Modo solo lectura');
     }
-    if (gate && !['checkout', 'billing', 'recheck', 'logout', 'export'].includes(d.act)) return;
+    if (gate && !['pay', 'pay-paypal', 'pay-bizum', 'recheck', 'logout', 'export'].includes(d.act)) return;
     if (t.tagName === 'A' && !d.act) return;
     if (d.nav) { e.preventDefault(); closeSheet(); return go(d.nav); }
     if (d.cfilter) { ui.clientFilter = d.cfilter; return render(); }
@@ -1926,8 +2004,18 @@
       case 'demo': return loadDemo();
       case 'ai-save': aiCfg = { apiKey: $('#aiKey').value.trim(), model: $('#aiModel').value }; saveAi(); return toast(aiCfg.apiKey ? 'IA configurada ✓' : 'Clave eliminada');
       case 'share': return shareData();
-      case 'checkout': return goPay('create-checkout');
-      case 'billing': return goPay('billing-portal');
+      case 'pay': return sheet('Elige cómo pagar', payButtons());
+      case 'pay-paypal': return paypalSheet();
+      case 'pay-bizum': return bizumSheet();
+      case 'cancel-paypal': return cancelPaypal();
+      case 'bizum-ok': {
+        const r = adminRows?.find((x) => x.id === d.user);
+        if (!confirm(`¿Confirmas que has recibido el Bizum de ${r?.full_name || r?.email || 'este nutricionista'}? Se le sumará 1 mes.`)) return;
+        return cloud.adminConfirmBizum(d.user, d.id ? num(d.id) : null).then((until) => { closeSheet(); adminRows = null; render(); toast(`Pagado hasta el ${fmtDate(String(until).slice(0, 10), true)} ✓`); }).catch((err) => toast(err.message));
+      }
+      case 'bizum-no':
+        if (!confirm('¿Marcar este aviso como no recibido?')) return;
+        return cloud.adminRejectBizum(num(d.id)).then(() => { adminRows = null; render(); }).catch((err) => toast(err.message));
       case 'recheck': return afterPayment();
       case 'logout': return logout();
       case 'exit-view': return exitViewing();

@@ -493,3 +493,11 @@ body.gated { padding-bottom: 24px; }
   .client-card:hover { transform: translateY(-1px); }
 }
 @media (min-width: 1400px) { .client-grid { grid-template-columns: repeat(3, 1fr); } }
+/* pagos: PayPal y Bizum */
+.pay-options { display: grid; gap: 10px; margin: 6px 0 4px; }
+.pay-btn { justify-content: flex-start !important; text-align: left; gap: 12px !important; padding: 14px 16px !important; height: auto !important; background: var(--surface); border: 1.5px solid var(--line-strong); }
+.pay-btn svg { width: 30px; height: 30px; flex: none; }
+.pay-btn span { display: flex; flex-direction: column; font-weight: 750; line-height: 1.25; }
+.pay-btn small { font-weight: 550; font-size: 12px; color: var(--muted); margin-top: 2px; }
+.bizum-box { display: flex; gap: 14px; align-items: center; padding: 14px; border-radius: 18px; background: color-mix(in srgb, #05c3dd 12%, var(--surface)); margin-bottom: 12px; }
+.bizum-box svg { width: 44px; height: 44px; }
