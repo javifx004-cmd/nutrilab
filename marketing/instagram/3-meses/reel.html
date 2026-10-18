@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>NutriLab · Reel</title>
+<style>
+@font-face { font-family: 'Jakarta'; src: url(font.woff2) format('woff2'); font-weight: 200 800; }
+:root { --lime: #d9f99d; --deep: #03291e; --brand: #059669; --ink: #0b1f17; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; font-family: 'Jakarta', system-ui, sans-serif; }
+#stage { position: absolute; inset: 0; overflow: hidden; color: #fff;
+  background: radial-gradient(110% 50% at 90% 0%, #0f9b6c, transparent 60%), radial-gradient(90% 50% at 0% 100%, #0b5e44, transparent 70%), linear-gradient(160deg, #06402f, var(--deep) 70%); }
+.layer { position: absolute; opacity: 0; will-change: transform, opacity; }
+.scene { inset: 0; }
+.cap { position: absolute; left: 80px; right: 80px; top: 230px; font-size: 76px; font-weight: 800; line-height: 1.06; letter-spacing: -.03em; }
+.cap em, .hook em, .say em, .cta .big em, .list h2 em, .stat em { font-style: normal; color: var(--lime); }
+.cap small { display: block; font-size: 38px; font-weight: 600; letter-spacing: -.01em; opacity: .8; margin-top: 20px; line-height: 1.25; }
+.hook, .say { position: absolute; left: 80px; right: 80px; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; font-weight: 800; letter-spacing: -.04em; }
+.hook { font-size: 104px; line-height: 1.04; }
+.hook .emo { font-size: 150px; margin-bottom: 30px; }
+.say { font-size: 92px; line-height: 1.06; }
+.say small { display: block; font-size: 42px; font-weight: 600; letter-spacing: -.01em; opacity: .8; margin-top: 26px; line-height: 1.25; }
+.phone { position: absolute; left: 245px; top: 700px; width: 590px; border-radius: 82px; padding: 18px; background: linear-gradient(145deg, #1b2b25, #050b09); box-shadow: 0 60px 120px -30px rgba(0,0,0,.6), inset 0 0 0 2px #2f4a40; }
+.screen { position: relative; width: 554px; height: calc(554px * 720 / 390); border-radius: 64px; overflow: hidden; background: #f3f6f4; }
+.screen img { position: absolute; left: 0; top: 0; width: 100%; }
+.card { position: absolute; left: 110px; top: 760px; width: 860px; border-radius: 48px; overflow: hidden; background: #f3f6f4; box-shadow: 0 60px 120px -30px rgba(0,0,0,.6); }
+.card img { width: 100%; display: block; margin-top: -6px; }
+.laptop { position: absolute; left: 60px; width: 960px; top: 820px; }
+.laptop .scr { background: #0d1512; padding: 14px; border-radius: 26px 26px 0 0; }
+.laptop .scr img { width: 100%; display: block; border-radius: 10px; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; }
+.laptop .base { height: 26px; margin: 0 -40px; border-radius: 0 0 40px 40px; background: linear-gradient(#d7e0dc, #aebbb5); }
+.chip { position: absolute; display: inline-flex; align-items: center; gap: 16px; padding: 24px 34px; border-radius: 30px; background: #fff; color: var(--ink); font-weight: 800; font-size: 38px; box-shadow: 0 30px 60px -20px rgba(0,0,0,.5); }
+.chip .ok { width: 54px; height: 54px; border-radius: 50%; background: var(--brand); color: #fff; display: grid; place-items: center; font-size: 32px; }
+.chip small { display: block; font-size: 26px; color: #4b6358; font-weight: 600; }
+.wa { position: absolute; left: 90px; width: 820px; top: 820px; background: #dcf8c6; color: #111b21; border-radius: 36px 36px 10px 36px; padding: 34px 40px 22px; font-size: 40px; line-height: 1.32; box-shadow: 0 40px 80px -20px rgba(0,0,0,.5); }
+.wa a { color: #027eb5; word-break: break-all; }
+.wa .who { font-size: 30px; font-weight: 800; color: #075e54; margin-bottom: 8px; }
+.wa .t { text-align: right; font-size: 26px; color: #667781; margin-top: 8px; }
+.list { position: absolute; left: 80px; right: 80px; top: 300px; }
+.list h2 { font-size: 84px; font-weight: 800; letter-spacing: -.035em; line-height: 1.05; margin-bottom: 60px; }
+.list .it { display: flex; gap: 26px; align-items: flex-start; font-size: 52px; font-weight: 700; line-height: 1.2; margin-bottom: 40px; letter-spacing: -.02em; }
+.list .it i { flex: none; width: 62px; height: 62px; border-radius: 50%; background: var(--lime); color: var(--deep); font-style: normal; display: grid; place-items: center; font-size: 32px; font-weight: 800; margin-top: 2px; }
+.split { position: absolute; left: 60px; right: 60px; top: 380px; display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
+.split .col { border-radius: 40px; padding: 44px 36px; }
+.split .col h3 { font-size: 46px; font-weight: 800; margin-bottom: 30px; letter-spacing: -.02em; }
+.split .col .it { font-size: 36px; font-weight: 650; line-height: 1.22; margin-bottom: 26px; display: flex; gap: 14px; }
+.split .bad { background: rgba(255,255,255,.08); border: 2px solid rgba(255,255,255,.14); }
+.split .bad .it b { color: #fda4af; }
+.split .good { background: #f0fdf4; color: var(--ink); }
+.split .good .it b { color: var(--brand); }
+.stat { position: absolute; left: 80px; right: 80px; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; }
+.stat .n { font-size: 300px; font-weight: 800; letter-spacing: -.06em; line-height: .95; color: var(--lime); }
+.stat .t { font-size: 92px; font-weight: 800; letter-spacing: -.035em; margin-top: 20px; }
+.stat .s { font-size: 44px; font-weight: 600; opacity: .8; margin-top: 16px; }
+.cta { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 80px; }
+.cta img { width: 260px; height: 260px; border-radius: 64px; box-shadow: 0 30px 70px rgba(0,0,0,.4); }
+.cta .nm { font-size: 96px; font-weight: 800; letter-spacing: -.03em; margin-top: 44px; } .cta .nm span { color: var(--lime); }
+.cta .by { font-size: 36px; opacity: .75; margin-top: 6px; }
+.cta .big { font-size: 74px; font-weight: 800; letter-spacing: -.03em; line-height: 1.08; margin-top: 90px; }
+.cta .pill { margin-top: 50px; background: var(--lime); color: var(--deep); font-weight: 800; font-size: 44px; padding: 26px 50px; border-radius: 60px; }
+.cta .small { margin-top: 28px; font-size: 32px; opacity: .75; }
+.brandmark { left: 80px; top: 110px; display: flex; align-items: center; gap: 16px; font-weight: 800; font-size: 36px; }
+.brandmark img { width: 64px; height: 64px; border-radius: 18px; }
+.brandmark span { color: var(--lime); }
+.pn { margin-left: -.07em; }
+</style></head>
+<body><div id="stage"></div>
+<script src="content.js"></script>
+<script>
+const day = window.CONTENT.days.find((d) => d.id === new URLSearchParams(location.search).get('d'));
+const scenes = day.feed.scenes;
+const stage = document.getElementById('stage');
+const ease = (x) => (x < 0 ? 0 : x > 1 ? 1 : 1 - Math.pow(1 - x, 3));
+const easeIO = (x) => (x < 0 ? 0 : x > 1 ? 1 : x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const S = 554 / 1170; // escala de las capturas (1170 px) a la pantalla del móvil
+const el = (html, cls) => { const e = document.createElement('div'); e.className = cls; e.innerHTML = html; return e; };
+const cap = (s) => s.cap ? `<div class="cap">${s.cap}${s.small ? `<small>${s.small}</small>` : ''}</div>` : '';
+let T = 0; const L = [];
+// marca fija salvo en gancho y cierre
+const bm = el(`<img src="icon.svg"><div>Nutri<span>Lab</span></div>`, 'layer brandmark'); stage.appendChild(bm);
+scenes.forEach((s) => {
+  const a = T, b = T + s.d; T = b;
+  const box = el('', 'layer scene'); stage.appendChild(box);
+  const parts = []; // [elemento, retraso, tipo de entrada]
+  const add = (html, delay = 0, enter = 'up') => { const e = el(html, 'part'); e.style.cssText = 'position:absolute;inset:0;opacity:0'; box.appendChild(e); parts.push([e, delay, enter]); return e; };
+  let update = null;
+  if (s.t === 'hook') add(`<div class="hook"><div class="emo">${s.emoji}</div>${s.text}</div>`, 0, 'pop');
+  if (s.t === 'say') add(`<div class="say">${s.text}${s.small ? `<small>${s.small}</small>` : ''}</div>`, 0, 'pop');
+  if (s.t === 'stat') add(`<div class="stat"><div class="n">${s.big}</div><div class="t">${s.text}</div>${s.small ? `<div class="s">${s.small}</div>` : ''}</div>`, 0, 'pop');
+  if (s.t === 'phone') {
+    add(cap(s));
+    const ph = add(`<div class="phone"><div class="screen">${s.screens.map((x, i) => `<img data-i="${i}" src="img/${x[0]}" style="opacity:${i ? 0 : 1}">`).join('')}</div></div>`, .15);
+    (s.chips || []).forEach(([ic, t, sm], i) => add(`<div class="chip" style="${i % 2 ? 'right:50px' : 'left:50px'};top:${1180 + i * 250}px"><span class="ok">${ic}</span><div>${t}<small>${sm}</small></div></div>`, .9 + i * .5, 'pop'));
+    update = (t) => {
+      const per = s.d / s.screens.length;
+      s.screens.forEach((x, i) => {
+        const img = ph.querySelector(`[data-i="${i}"]`);
+        if (i) img.style.opacity = ease((t - a - i * per) / .3);
+        if (x[1]) img.style.transform = `translateY(${-x[1] * S * easeIO((t - a - i * per - .6) / (per - 1.2))}px)`;
+      });
+    };
+  }
+  if (s.t === 'card') { add(cap(s)); add(`<div class="card"><img src="img/${s.img}"></div>`, .2); }
+  if (s.t === 'laptop') { add(cap(s)); add(`<div class="laptop"><div class="scr"><img src="img/${s.img}"></div><div class="base"></div></div>`, .2); }
+  if (s.t === 'wa') { add(cap(s)); add(`<div class="wa"><div class="who">Laura · Nutricionista</div>Hola Ana 👋 Aquí tienes tu plan y tu progreso. Ábrelo cuando quieras:<br><a>javifx004-cmd.github.io/nutrilab/#/p/…</a><div class="t">10:42 ✓✓</div></div>`, .3, 'pop'); }
+  if (s.t === 'list') {
+    add(`<div class="list"><h2>${s.title}</h2></div>`);
+    const step = (s.d - 1.4) / s.items.length;
+    s.items.forEach((it, i) => add(`<div class="list" style="top:${300 + 160 + i * 150 + (s.title.length > 22 ? 90 : 0)}px"><div class="it">${/^[✕✓] /.test(it) ? `<i style="${it[0] === '✕' ? 'background:#fda4af;color:#4c0519' : ''}">${it[0]}</i><span>${it.slice(2)}</span>` : `<i>${i + 1}</i><span>${it}</span>`}</div></div>`, .5 + i * step, 'left'));
+  }
+  if (s.t === 'split') {
+    const col = (c, cls, mark) => `<div class="col ${cls}"><h3>${c.title}</h3>${c.items.map((x) => `<div class="it"><b>${mark}</b><span>${x}</span></div>`).join('')}</div>`;
+    add(`<div class="split">${col(s.left, 'bad', '✕')}<div></div></div>`, .1, 'left');
+    add(`<div class="split"><div></div>${col(s.right, 'good', '✓')}</div>`, 1.6, 'right');
+  }
+  if (s.t === 'cta') add(`<div class="cta"><img src="icon-maskable.svg"><div class="nm">Nutri<span>Lab</span></div><div class="by">La app para nutricionistas</div><div class="big">${s.big}</div><div class="pill">14 días gratis · sin tarjeta</div><div class="small">Enlace en la bio</div></div>`, 0, 'pop');
+  L.push({ box, a, b, parts, update, last: s.t === 'cta', noBrand: s.t === 'hook' || s.t === 'cta' });
+});
+window.DURATION = T;
+window.renderAt = (t) => {
+  let showBrand = false;
+  for (const l of L) {
+        const on = t >= l.a && (t < l.b || l.last);
+    const o = on ? Math.min(l.a === 0 ? 1 : ease((t - l.a) / .25), l.last ? 1 : ease((l.b - t) / .2)) : 0;
+    l.box.style.opacity = o;
+    if (o > 0 && !l.noBrand) showBrand = true;
+    if (o <= 0) continue;
+    for (const [e, delay, enter] of l.parts) {
+      const k = ease((t - l.a - delay) / .45);
+      e.style.opacity = k;
+      e.style.transform = enter === 'pop' ? `scale(${.92 + .08 * k})` : enter === 'left' ? `translateX(${(1 - k) * -80}px)` : enter === 'right' ? `translateX(${(1 - k) * 80}px)` : `translateY(${(1 - k) * 90}px)`;
+    }
+    l.update?.(t);
+  }
+  bm.style.opacity = showBrand ? 1 : 0;
+};
+// Plus Jakarta deja aire antes de «.» y «,» en tamaños grandes
+for (const h of document.querySelectorAll('.hook, .say, .cap, .cta .big, .list h2, .stat .t')) {
+  const walk = (n) => { for (const c of [...n.childNodes]) {
+    if (c.nodeType === 3 && /[.,]/.test(c.data)) { const f = document.createElement('span'); f.innerHTML = c.data.replace(/[.,]/g, (m) => `<span class="pn">${m}</span>`); c.replaceWith(...f.childNodes); }
+    else if (c.nodeType === 1 && c.tagName !== 'SMALL') walk(c); } };
+  walk(h);
+}
+window.renderAt(0);
+</script></body></html>

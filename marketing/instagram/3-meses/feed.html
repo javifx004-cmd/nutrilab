@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>NutriLab · Publicaciones e historias</title>
+<style>
+@font-face { font-family: 'Jakarta'; src: url(font.woff2) format('woff2'); font-weight: 200 800; }
+:root { --ink: #0b1f17; --muted: #4b6358; --brand: #059669; --brand-2: #047857; --lime: #d9f99d; --deep: #03291e; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Jakarta', system-ui, sans-serif; background: #777; display: flex; flex-wrap: wrap; gap: 30px; padding: 30px; }
+.post { width: 1080px; height: 1350px; position: relative; overflow: hidden; color: var(--ink); background: #f3f7f5; flex: none; }
+.story { width: 1080px; height: 1920px; position: relative; overflow: hidden; color: var(--ink); flex: none; }
+.dark { color: #fff; background: radial-gradient(110% 60% at 90% 0%, #0f9b6c, transparent 60%), radial-gradient(90% 60% at 0% 100%, #0b5e44, transparent 70%), linear-gradient(160deg, #06402f, var(--deep) 70%); }
+.mint { background: radial-gradient(90% 55% at 15% 0%, #d1fae5, transparent 70%), linear-gradient(170deg, #f0fdf7, #dff4ea); }
+.lav { background: radial-gradient(90% 55% at 15% 0%, #ede9fe, transparent 70%), linear-gradient(170deg, #f7f5ff, #e6ebfd); }
+.cream { background: radial-gradient(90% 55% at 85% 0%, #fef3c7, transparent 70%), linear-gradient(170deg, #fffdf6, #f3f0e4); }
+.sky { background: radial-gradient(90% 55% at 85% 0%, #dbeafe, transparent 70%), linear-gradient(170deg, #f5f9ff, #e3eefb); }
+.rose { background: radial-gradient(90% 55% at 15% 0%, #ffe4e6, transparent 70%), linear-gradient(170deg, #fff7f8, #f8e8ea); }
+.pad { position: absolute; inset: 0; padding: 84px 84px 0; }
+.story .pad { padding: 230px 90px 0; }
+.brand { display: inline-flex; align-items: center; gap: 14px; font-weight: 800; font-size: 30px; letter-spacing: -.02em; }
+.brand img { width: 58px; height: 58px; border-radius: 16px; box-shadow: 0 6px 16px rgba(0,0,0,.18); }
+.brand span { color: var(--brand); } .dark .brand span { color: var(--lime); }
+h1 { font-size: 88px; line-height: 1.03; letter-spacing: -.035em; font-weight: 800; margin-top: 56px; }
+h1 em, h2 em { font-style: normal; color: var(--brand); } .dark h1 em, .dark h2 em { color: var(--lime); }
+.lav h1 em { background: linear-gradient(90deg, #7c3aed, #2563eb); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.sub { font-size: 34px; line-height: 1.32; margin-top: 24px; color: var(--muted); max-width: 880px; font-weight: 500; white-space: pre-line; }
+.dark .sub { color: rgba(255,255,255,.82); }
+.pn { margin-left: -.07em; }
+.kicker { display: block; font-size: 26px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--brand); margin-top: 52px; }
+.dark .kicker { color: var(--lime); }
+.kicker + h1 { margin-top: 16px; }
+.phone { position: absolute; width: 470px; border-radius: 66px; padding: 15px; background: linear-gradient(145deg, #1b2b25, #050b09); box-shadow: 0 50px 90px -30px rgba(3, 41, 30, .55), inset 0 0 0 2px #2f4a40; }
+.phone img { width: 100%; display: block; border-radius: 52px; aspect-ratio: 390 / 720; object-fit: cover; object-position: top; }
+.card { position: absolute; border-radius: 40px; overflow: hidden; background: #f3f6f4; box-shadow: 0 50px 90px -30px rgba(3, 41, 30, .5), 0 0 0 2px rgba(3, 41, 30, .05); }
+.card img { width: 100%; display: block; margin-top: -6px; }
+.laptop { position: absolute; }
+.laptop .scr { background: #0d1512; padding: 14px; border-radius: 26px 26px 0 0; box-shadow: 0 50px 90px -30px rgba(3, 41, 30, .5); }
+.laptop .scr img { width: 100%; display: block; border-radius: 10px; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; }
+.laptop .base { height: 26px; margin: 0 -40px; border-radius: 0 0 40px 40px; background: linear-gradient(#d7e0dc, #aebbb5); }
+.chip { position: absolute; display: inline-flex; align-items: center; gap: 12px; padding: 20px 28px; border-radius: 26px; background: #fff; color: var(--ink); font-weight: 750; font-size: 30px; box-shadow: 0 24px 50px -16px rgba(3, 41, 30, .4); }
+.chip .ok { width: 42px; height: 42px; border-radius: 50%; background: var(--brand); color: #fff; display: grid; place-items: center; font-size: 26px; }
+.chip small { display: block; font-size: 21px; color: var(--muted); font-weight: 600; }
+.foot { position: absolute; left: 84px; right: 84px; bottom: 56px; display: flex; justify-content: space-between; align-items: center; font-size: 26px; font-weight: 700; color: var(--muted); }
+.dark .foot { color: rgba(255,255,255,.8); }
+.pill { background: var(--lime); color: var(--deep); padding: 16px 30px; border-radius: 40px; font-weight: 800; font-size: 28px; }
+.light .pill, .mint .pill, .lav .pill, .cream .pill, .sky .pill, .rose .pill { background: var(--brand); color: #fff; }
+.big { font-size: 230px; font-weight: 800; letter-spacing: -.06em; line-height: .95; margin-top: 150px; color: var(--brand); }
+.dark .big { color: var(--lime); }
+.bigtext { font-size: 64px; font-weight: 800; letter-spacing: -.03em; line-height: 1.08; margin-top: 30px; }
+.opts { list-style: none; margin-top: 54px; display: grid; gap: 20px; }
+.opts li { font-size: 38px; font-weight: 700; padding: 28px 36px; border-radius: 28px; background: rgba(255,255,255,.85); box-shadow: 0 14px 30px -18px rgba(3,41,30,.35); }
+.dark .opts li { background: rgba(255,255,255,.1); border: 2px solid rgba(255,255,255,.18); }
+.num { position: absolute; right: 84px; top: 60px; font-size: 130px; font-weight: 800; letter-spacing: -.06em; line-height: 1; color: rgba(5,150,105,.14); }
+.dark .num { color: rgba(217,249,157,.14); }
+.body { font-size: 40px; line-height: 1.38; margin-top: 30px; font-weight: 550; color: #2a4238; white-space: pre-line; max-width: 900px; }
+.dark .body { color: rgba(255,255,255,.88); }
+.body.big2 { font-size: 50px; }
+.deco { position: absolute; right: -80px; bottom: -80px; width: 560px; opacity: .08; }
+.counter { position: absolute; right: 84px; bottom: 56px; font-size: 26px; font-weight: 800; color: var(--muted); }
+.dark .counter { color: rgba(255,255,255,.7); }
+.endlogo { display: block; width: 190px; height: 190px; border-radius: 48px; margin: 220px auto 0; box-shadow: 0 30px 70px rgba(0,0,0,.35); }
+.center { text-align: center; }
+.center .sub { margin-left: auto; margin-right: auto; }
+/* historias */
+.story h1 { font-size: 96px; margin-top: 40px; }
+.story .sub { font-size: 42px; }
+.story .tipcard { margin-top: 60px; background: rgba(255,255,255,.9); border-radius: 44px; padding: 56px 60px; font-size: 52px; line-height: 1.32; font-weight: 650; box-shadow: 0 30px 60px -30px rgba(3,41,30,.35); }
+.dark .tipcard { background: rgba(255,255,255,.1); border: 2px solid rgba(255,255,255,.18); }
+.story .bottom { position: absolute; left: 90px; right: 90px; bottom: 260px; text-align: center; font-size: 30px; font-weight: 700; color: var(--muted); }
+.dark.story .bottom { color: rgba(255,255,255,.75); }
+</style></head>
+<body>
+<div id="all"></div>
+<script src="content.js"></script>
+<script>
+const { days } = window.CONTENT;
+const brand = () => `<div class="brand"><img src="icon.svg" alt=""><div>Nutri<span>Lab</span></div></div>`;
+const phone = (src, css) => `<div class="phone" style="${css}"><img src="img/${src}"></div>`;
+const card = (src, css) => `<div class="card" style="${css}"><img src="img/${src}"></div>`;
+const laptop = (src, css) => `<div class="laptop" style="${css}"><div class="scr"><img src="img/${src}"></div><div class="base"></div></div>`;
+const leaf = `<svg class="deco" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10z"/><path d="M2 21c0-3 1.9-5.4 5.1-6"/></svg>`;
+const BG = ['mint', 'lav', 'cream', 'sky', 'rose'];
+const isCard = (img) => /^sheet-/.test(img || '');
+const visual = (img, top, w = 470, h = 'auto', forceCard) => {
+  if (!img) return '';
+  if (/^pc-/.test(img)) return laptop(img, `left:120px; top:${top}px; width:840px`);
+  if (forceCard || isCard(img)) return card(img, `left:${(1080 - (w + 300)) / 2}px; top:${top}px; width:${w + 300}px`);
+  return phone(img, `left:${(1080 - w) / 2}px; top:${top}px; width:${w}px`);
+};
+const chips = (list = [], y0 = 900) => list.map(([ic, t, s], i) => `<div class="chip" style="${i % 2 ? 'right:56px' : 'left:56px'}; top:${y0 + i * 230}px"><span class="ok">${ic}</span><div>${t}<small>${s}</small></div></div>`).join('');
+const out = [];
+const sec = (id, cls, html, kind = 'post') => out.push(`<section class="${kind} ${cls}" id="${id}">${html}</section>`);
+
+days.forEach((d, i) => {
+  const f = d.feed, bg = BG[i % BG.length];
+  if (f.kind === 'post') {
+    const cls = f.dark ? 'dark' : bg;
+    if (f.tpl === 'quote') sec(`d${d.id}-post`, cls, `<div class="pad">${brand()}<h1 style="font-size:104px;margin-top:260px">${f.text}</h1><p class="sub">${f.sub || ''}</p></div>${leaf}<div class="foot"><span>nutrilab · la app para nutricionistas</span></div>`);
+    if (f.tpl === 'phone') sec(`d${d.id}-post`, cls, `<div class="pad">${brand()}<h1>${f.title}</h1><p class="sub">${f.sub}</p></div>${visual(f.img, 640)}${chips(f.chips, 880)}`);
+    if (f.tpl === 'card') sec(`d${d.id}-post`, cls, `<div class="pad">${brand()}<h1>${f.title}</h1><p class="sub">${f.sub}</p></div>${card(f.img, 'left:110px; top:700px; width:860px')}`);
+    if (f.tpl === 'stat') sec(`d${d.id}-post`, cls, `<div class="pad">${brand()}<div class="big">${f.big}</div><div class="bigtext">${f.text}</div><p class="sub" style="margin-top:40px">${f.sub}</p></div>${leaf}`);
+    if (f.tpl === 'question') sec(`d${d.id}-post`, f.dark ? 'dark' : bg, `<div class="pad">${brand()}<span class="kicker">Pregunta para nutricionistas</span><h1>${f.title}</h1><ul class="opts">${f.options.map((o) => `<li>${o}</li>`).join('')}</ul></div><div class="foot"><span>Responde en comentarios 👇</span></div>`);
+    if (f.tpl === 'offer') sec(`d${d.id}-post`, 'dark', `<div class="pad">${brand()}<span class="kicker">49,99 €/mes · todo incluido</span><h1>${f.title}</h1><p class="sub">${f.sub}</p></div>${f.laptop ? laptop(f.img, 'left:120px; top:700px; width:840px') : phone(f.img, 'right:-30px; top:640px; width:430px; transform:rotate(7deg)')}<div class="foot"><span class="pill">Enlace en la bio</span></div>`);
+  }
+  if (f.kind === 'carousel') {
+    const n = f.slides.length, pbg = BG[(i * 3) % BG.length];
+    f.slides.forEach((s, k) => {
+      const id = `d${d.id}-carrusel-${k + 1}`, ctr = `<div class="counter">${k + 1}/${n}</div>`;
+      if (s.tpl === 'cover') sec(id, 'dark', `<div class="pad">${brand()}<h1 style="font-size:${s.img ? 92 : 116}px;margin-top:${s.img ? 70 : 360}px">${s.title}</h1><p class="sub">${s.sub}</p></div>${s.img ? visual(s.img, 690) : leaf}<div class="foot"><span>Desliza →</span></div>`);
+      if (s.tpl === 'point') sec(id, pbg, `<div class="pad">${brand()}<div class="num">0${s.n}</div><h1 style="font-size:${s.img ? 80 : 96}px;margin-top:${s.img ? 70 : 340}px">${s.title}</h1><p class="body ${s.img ? '' : 'big2'}">${s.body}</p></div>${s.img ? visual(s.img, s.kind === 'card' ? 720 : 760, s.kind === 'card' ? 520 : 440, 'auto', s.kind === 'card') : leaf}${ctr}`);
+      if (s.tpl === 'end') sec(id, 'dark', `<div class="pad center"><img class="endlogo" src="icon-maskable.svg"><h1 style="font-size:92px;margin-top:70px">${s.title}</h1><p class="sub">${s.sub}</p></div><div class="foot" style="justify-content:center"><span class="pill">Enlace en la bio 👆</span></div>`);
+    });
+  }
+  // ---------- historia del día
+  const st = d.story, KICK = { poll: 'Encuesta', quiz: 'Quiz', slider: 'Tu opinión', question: 'Pregúntanos', countdown: 'Cuenta atrás', tip: 'Tip del día', feature: 'NutriLab', promo: 'Pruébala gratis' };
+  const sbg = ['poll', 'quiz', 'slider', 'question', 'countdown'].includes(st.type) ? BG[(i + 2) % BG.length] : st.type === 'promo' ? 'dark' : st.type === 'tip' ? BG[(i + 1) % BG.length] : 'mint';
+  let html = `<div class="pad">${brand()}<span class="kicker">${KICK[st.type]}</span><h1>${st.title}</h1>${st.text && st.type !== 'tip' ? `<p class="sub">${st.text}</p>` : ''}`;
+  if (st.type === 'tip') html += `<div class="tipcard">${st.text}</div></div>${leaf}`;
+  else if (st.type === 'feature') html += `</div>${st.card ? card(st.img, 'left:110px; top:860px; width:860px') : phone(st.img, 'left:290px; top:820px; width:500px')}`;
+  else if (st.type === 'promo') html += `</div>${st.card ? card(st.img, 'left:190px; top:780px; width:700px') : phone(st.img, 'left:340px; top:740px; width:400px')}<div class="bottom"><span class="pill">14 días gratis · sin tarjeta</span></div>`;
+  else html += `</div><div class="bottom">nutrilab · la app para nutricionistas</div>`; // hueco libre para el sticker
+  sec(`d${d.id}-historia`, sbg, html, 'story');
+});
+document.getElementById('all').innerHTML = out.join('');
+// Plus Jakarta deja aire antes de «.» y «,» en tamaños grandes
+document.querySelectorAll('h1, .bigtext').forEach((h) => {
+  const walk = (n) => { for (const c of [...n.childNodes]) {
+    if (c.nodeType === 3 && /[.,]/.test(c.data)) { const s = document.createElement('span'); s.innerHTML = c.data.replace(/[.,]/g, (m) => `<span class="pn">${m}</span>`); c.replaceWith(...s.childNodes); }
+    else if (c.nodeType === 1) walk(c); } };
+  walk(h);
+});
+</script>
+</body></html>
