@@ -1,8 +1,8 @@
 // Configuración de NutriLab en la nube (Supabase + PayPal + Bizum). Déjalo vacío para usar la app solo en este dispositivo.
 // Ver SETUP.md para conseguir estos valores. Todos son públicos: están pensados para ir en la web.
 window.NUTRILAB_CONFIG = {
-  supabaseUrl: '',              // p. ej. https://abcd1234.supabase.co
-  supabaseAnonKey: '',          // Project Settings → API Keys → anon / publishable
+  supabaseUrl: 'https://asecayonrpirtiyutppf.supabase.co',              // p. ej. https://abcd1234.supabase.co
+  supabaseAnonKey: 'sb_publishable_1LBw8VsKGnQPKdhvD2jrWQ_HbzN70lZ',          // Project Settings → API Keys → anon / publishable
   price: '49,99 € al mes',      // texto que se muestra en la app (el precio real de PayPal se define en el plan)
   priceAmount: 49.99,           // para calcular los ingresos en el panel de administración
   trialDays: 14,                // días de prueba gratis (igual que en la base de datos)
