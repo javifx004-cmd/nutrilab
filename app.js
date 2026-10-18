@@ -1566,7 +1566,8 @@
   const BIZUM = `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect width="24" height="24" rx="6" fill="#05c3dd"/><path d="M8 6.5v11M8 6.5h4.2a2.7 2.7 0 0 1 0 5.4H8m0 0h4.8a2.8 2.8 0 0 1 0 5.6H8" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   const PAYPAL = `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect width="24" height="24" rx="6" fill="#003087"/><path d="M9.2 18.5l1.6-10h4c2 0 3.2 1.1 2.9 3-.4 2.3-2 3.3-4.2 3.3h-1.7l-.6 3.7z" fill="#fff"/><path d="M7 16.5l1.6-10" stroke="#009cde" stroke-width="2" stroke-linecap="round"/></svg>`;
   const payButtons = (renew = false) => `<div class="pay-options">
-      ${CFG.paypalClientId ? `<button class="btn block pay-btn" data-act="pay-paypal">${PAYPAL}<span>PayPal o tarjeta · ${esc(CFG.price || '')}<small>Se renueva sola cada mes. Cancela cuando quieras.</small></span></button>` : ''}
+      ${CFG.paypalClientId ? `<button class="btn block pay-btn" data-act="pay-paypal">${PAYPAL}<span>PayPal o tarjeta · ${esc(CFG.price || '')}<small>Se renueva sola cada mes. Cancela cuando quieras.</small></span></button>`
+        : CFG.paypalMe ? `<button class="btn block pay-btn" data-act="pay-paypalme">${PAYPAL}<span>${renew ? 'Añadir 1 mes con PayPal' : 'PayPal · pagar 1 mes'}<small>Con tu cuenta de PayPal o con tarjeta. Pagas cada mes.</small></span></button>` : ''}
       ${CFG.bizumPhone ? `<button class="btn block pay-btn" data-act="pay-bizum">${BIZUM}<span>${renew ? 'Añadir 1 mes con Bizum' : 'Bizum · pagar 1 mes'}<small>Sin renovación automática: pagas cada mes.</small></span></button>` : ''}
     </div>`;
 
@@ -1598,29 +1599,35 @@
     } catch (err) { const b = $('#ppButtons'); if (b) b.innerHTML = `<p class="small">${esc(err.message)}</p>`; }
   }
 
-  // Bizum: se envía a tu número y el administrador lo confirma (Bizum no permite cobros automáticos sin un TPV del banco).
-  async function bizumSheet() {
+  // Pago mes a mes con Bizum o PayPal.me: el nutricionista paga y avisa; el administrador lo confirma al verlo.
+  // (Bizum no permite cobros automáticos sin un TPV del banco.)
+  async function manualPaySheet(method) {
     const email = acct?.user.email || '';
-    const pending = await cloud.pendingBizum(acct.user.id).catch(() => null);
-    const tel = String(CFG.bizumPhone).replace(/[^\d]/g, '');
-    sheet('Pagar con Bizum', `
-      <div class="bizum-box">${BIZUM}<div><div class="small muted">Envía un Bizum de</div><b class="num" style="font-size:24px">${esc(CFG.price?.split(' ')[0] || '49,99')} €</b></div></div>
+    const amount = CFG.price?.split(' ')[0] || '49,99';
+    const pending = await cloud.pendingPayment(acct.user.id).catch(() => null);
+    const tel = String(CFG.bizumPhone || '').replace(/[^\d]/g, '');
+    const ppUrl = `https://paypal.me/${encodeURIComponent(CFG.paypalMe || '')}/${String(num(amount)).replace(',', '.')}EUR`;
+    const isBizum = method === 'bizum';
+    sheet(isBizum ? 'Pagar con Bizum' : 'Pagar con PayPal', `
+      <div class="bizum-box" ${isBizum ? '' : 'style="background:color-mix(in srgb,#003087 10%,var(--surface))"'}>${isBizum ? BIZUM : PAYPAL}<div><div class="small muted">${isBizum ? 'Envía un Bizum de' : 'Paga con PayPal'}</div><b class="num" style="font-size:24px">${esc(amount)} €</b></div></div>
       <ol class="steps">
-        <li>Abre la app de tu banco → <b>Bizum</b> → <b>Enviar</b>.</li>
-        <li>Al número <b class="num">${esc(CFG.bizumPhone)}</b>${CFG.bizumName ? ` (${esc(CFG.bizumName)})` : ''} <button class="btn sm ghost" data-copy="${esc(tel)}">Copiar</button></li>
+        ${isBizum ? `<li>Abre la app de tu banco → <b>Bizum</b> → <b>Enviar</b>.</li>
+        <li>Al número <b class="num">${esc(CFG.bizumPhone)}</b>${CFG.bizumName ? ` (${esc(CFG.bizumName)})` : ''} <button class="btn sm ghost" data-copy="${esc(tel)}">Copiar</button></li>`
+        : `<li>Pulsa <b>Abrir PayPal</b>: se abre <b>paypal.me/${esc(CFG.paypalMe)}</b> con el importe puesto. Puedes pagar con tu cuenta o con tarjeta.</li>
+        <li><a class="btn primary block" href="${esc(ppUrl)}" target="_blank" rel="noopener" style="margin:6px 0">${PAYPAL}Abrir PayPal</a></li>`}
         <li>En el concepto escribe: <b>NutriLab ${esc(email)}</b> <button class="btn sm ghost" data-copy="NutriLab ${esc(email)}">Copiar</button></li>
-        <li>Pulsa <b>«Ya lo he enviado»</b>. En cuanto lo confirmemos se suma <b>1 mes</b> a tu cuenta.</li>
+        <li>Pulsa <b>«Ya lo he ${isBizum ? 'enviado' : 'pagado'}»</b>. En cuanto lo confirmemos se suma <b>1 mes</b> a tu cuenta.</li>
       </ol>
-      ${pending ? `<div class="note">Ya nos avisaste de un Bizum el ${esc(new Date(pending.created_at).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }))}. Lo confirmaremos en cuanto lo veamos.</div>`
-        : `<button class="btn primary block" id="bizumSent">${ICON.check}Ya lo he enviado</button>`}`);
+      ${pending ? `<div class="note">Ya nos avisaste de un pago el ${esc(new Date(pending.created_at).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }))}. Lo confirmaremos en cuanto lo veamos.</div>`
+        : `<button class="btn ${isBizum ? 'primary' : ''} block" id="paySent">${ICON.check}Ya lo he ${isBizum ? 'enviado' : 'pagado'}</button>`}`);
     $$('.sheet [data-copy]').forEach((b) => (b.onclick = () => copyText(b.dataset.copy)));
-    $('#bizumSent')?.addEventListener('click', async (e) => {
+    $('#paySent')?.addEventListener('click', async (e) => {
       e.target.disabled = true;
       try {
-        await cloud.notifyBizum(acct.user.id);
+        await cloud.notifyPayment(acct.user.id, method);
         closeSheet(); render(); toast('¡Gracias! Te avisaremos al confirmarlo');
-        // Aviso opcional al administrador por WhatsApp
-        if (CFG.bizumWhatsApp !== false && tel) window.open(`https://wa.me/${tel.replace(/^(?=[67]\d{8}$)/, '34')}?text=${encodeURIComponent(`Hola, he enviado el Bizum de NutriLab. Mi cuenta: ${email}`)}`, '_blank', 'noopener');
+        // Aviso opcional al administrador por WhatsApp (al número de Bizum)
+        if (CFG.bizumWhatsApp !== false && tel) window.open(`https://wa.me/${tel.replace(/^(?=[67]\d{8}$)/, '34')}?text=${encodeURIComponent(`Hola, he pagado NutriLab por ${isBizum ? 'Bizum' : 'PayPal'}. Mi cuenta: ${email}`)}`, '_blank', 'noopener');
       } catch (err) { toast(err.message); e.target.disabled = false; }
     });
   }
@@ -1705,7 +1712,7 @@
 
   function renderAdmin() {
     if (!adminRows) {
-      Promise.all([cloud.adminList(), cloud.adminPendingBizum()]).then(([rows, pend]) => { adminRows = rows; adminRows.pending = pend; if (route().view === 'admin') render(); }).catch((err) => toast(err.message));
+      Promise.all([cloud.adminList(), cloud.adminPendingPayments()]).then(([rows, pend]) => { adminRows = rows; adminRows.pending = pend; if (route().view === 'admin') render(); }).catch((err) => toast(err.message));
       return `<div class="ai-progress"><div class="spinner"></div><b>Cargando…</b></div>`;
     }
     const others = adminRows.filter((r) => !r.is_admin);
@@ -1716,10 +1723,10 @@
     const pend = adminRows.pending || [];
     const who = (uid) => others.find((r) => r.id === uid) || {};
     return `
-      ${pend.length ? `<div class="card"><div class="card-head"><h3>Bizum por confirmar</h3><span class="pill amber">${pend.length}</span></div>
-        <p class="small muted" style="margin:-4px 0 8px">Comprueba en tu banco que has recibido el Bizum antes de confirmarlo.</p>
-        ${pend.map((q) => `<div class="list-item"><div class="body"><div class="t">${esc(who(q.user_id).full_name || who(q.user_id).email || q.user_id)}</div><div class="s">${esc(who(q.user_id).email || '')} · ${esc(new Date(q.created_at).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }))} · ${fmt(q.amount_cents / 100, 2)} €</div></div>
-          <button class="btn sm primary" data-act="bizum-ok" data-id="${q.id}" data-user="${esc(q.user_id)}">+1 mes</button><button class="btn sm ghost" data-act="bizum-no" data-id="${q.id}">No recibido</button></div>`).join('')}</div>` : ''}
+      ${pend.length ? `<div class="card"><div class="card-head"><h3>Pagos por confirmar</h3><span class="pill amber">${pend.length}</span></div>
+        <p class="small muted" style="margin:-4px 0 8px">Comprueba en tu banco (Bizum) o en PayPal que has recibido el dinero antes de confirmarlo.</p>
+        ${pend.map((q) => `<div class="list-item"><div class="body"><div class="t">${esc(who(q.user_id).full_name || who(q.user_id).email || q.user_id)}</div><div class="s">${esc(who(q.user_id).email || '')} · ${esc(new Date(q.created_at).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }))} · ${q.method === 'paypal' ? 'PayPal' : 'Bizum'} · ${fmt(q.amount_cents / 100, 2)} €</div></div>
+          <button class="btn sm primary" data-act="bizum-ok" data-id="${q.id}" data-user="${esc(q.user_id)}" data-method="${esc(q.method)}">+1 mes</button><button class="btn sm ghost" data-act="bizum-no" data-id="${q.id}">No recibido</button></div>`).join('')}</div>` : ''}
       <div class="stats two">
         <div class="stat"><div class="l">Clientes que pagan</div><div class="v num">${paying.length}</div><div class="s">${others.length} registrado${others.length === 1 ? '' : 's'}</div></div>
         <div class="stat"><div class="l">Ingresos al mes</div><div class="v num">${mrr ? fmt(mrr, 2) + ' €' : '—'}</div><div class="s">estimado, antes de comisiones</div></div>
@@ -1732,7 +1739,7 @@
           <div class="body"><div class="name">${esc(r.full_name || r.email)}</div>
             <div class="meta"><span class="pill ${cls}">${esc(label)}</span><span>${r.clients} cliente${r.clients === 1 ? '' : 's'}</span><span>· desde ${esc(fmtDate(String(r.created_at).slice(0, 10)))}</span></div></div></div>`; }).join('')
         : `<div class="empty"><div class="art">${ICON.users}</div><h3>Aún no hay nutricionistas</h3><p>Cuando alguien se registre aparecerá aquí.</p></div>`}
-      <p class="small muted" style="text-align:center">Las suscripciones y reembolsos de PayPal se gestionan en tu cuenta de PayPal. Los Bizum, en tu banco.</p>`;
+      <p class="small muted" style="text-align:center">Los pagos y reembolsos de PayPal se gestionan en tu cuenta de PayPal. Los Bizum, en tu banco.</p>`;
   }
 
   function adminSheet(id) {
@@ -1751,7 +1758,8 @@
       <div class="menu" style="margin-top:14px">
         <a class="btn" href="mailto:${esc(r.email)}">${ICON.mail}Escribirle un email</a>
         <button class="btn" id="viewData">${ICON.users}Ver sus datos (solo lectura)</button>
-        <button class="btn" data-act="bizum-ok" data-user="${esc(r.id)}">${BIZUM}He recibido su Bizum: +1 mes</button>
+        ${CFG.bizumPhone ? `<button class="btn" data-act="bizum-ok" data-user="${esc(r.id)}" data-method="bizum">${BIZUM}He recibido su Bizum: +1 mes</button>` : ''}
+        ${CFG.paypalMe ? `<button class="btn" data-act="bizum-ok" data-user="${esc(r.id)}" data-method="paypal">${PAYPAL}He recibido su PayPal: +1 mes</button>` : ''}
       </div>
       <p class="small muted">Son datos de salud de sus clientes: entra solo por un motivo justificado (soporte, incidencia). Cada acceso queda registrado y el nutricionista lo verá en su app.</p>`);
     $('#viewData').onclick = () => {
@@ -1813,7 +1821,7 @@
         <p class="muted" style="margin:0 0 6px">Suscríbete para seguir trabajando con tus clientes. Tus datos están a salvo.</p>
         <div class="kcal-big" style="margin:14px 0 4px">${esc(CFG.price || '')}</div>
         <ul class="steps" style="text-align:left;max-width:320px;margin:14px auto">
-          <li>Clientes, mediciones y fotos ilimitados</li><li>Dietas manuales y con IA, en PDF</li><li>Todo sincronizado en tu móvil, tablet y PC</li><li>Paga con PayPal (o tarjeta) cada mes automáticamente, o con Bizum mes a mes</li></ul>
+          <li>Clientes, mediciones y fotos ilimitados</li><li>Dietas manuales y con IA, en PDF</li><li>Todo sincronizado en tu móvil, tablet y PC</li><li>Paga con PayPal (o tarjeta) o con Bizum</li></ul>
         ${p.subscription_status === 'past_due' ? '<p class="small muted">PayPal no ha podido cobrar tu cuota. Revisa tu forma de pago en PayPal o paga este mes con Bizum.</p>' : ''}
         ${payButtons()}
         <div class="row nowrap" style="margin-top:10px"><button class="btn grow" data-act="recheck">Ya he pagado</button><button class="btn grow" data-act="export">Exportar mis datos</button></div>
@@ -1953,7 +1961,7 @@
     if (viewing && (d.measure || d.item || d.food || (d.act && !['exit-view', 'print-plan', 'share-plan', 'logout'].includes(d.act)))) {
       e.preventDefault(); return toast('Modo solo lectura');
     }
-    if (gate && !['pay', 'pay-paypal', 'pay-bizum', 'recheck', 'logout', 'export'].includes(d.act)) return;
+    if (gate && !['pay', 'pay-paypal', 'pay-paypalme', 'pay-bizum', 'recheck', 'logout', 'export'].includes(d.act)) return;
     if (t.tagName === 'A' && !d.act) return;
     if (d.nav) { e.preventDefault(); closeSheet(); return go(d.nav); }
     if (d.cfilter) { ui.clientFilter = d.cfilter; return render(); }
@@ -2006,16 +2014,17 @@
       case 'share': return shareData();
       case 'pay': return sheet('Elige cómo pagar', payButtons());
       case 'pay-paypal': return paypalSheet();
-      case 'pay-bizum': return bizumSheet();
+      case 'pay-bizum': return manualPaySheet('bizum');
+      case 'pay-paypalme': return manualPaySheet('paypal');
       case 'cancel-paypal': return cancelPaypal();
       case 'bizum-ok': {
         const r = adminRows?.find((x) => x.id === d.user);
-        if (!confirm(`¿Confirmas que has recibido el Bizum de ${r?.full_name || r?.email || 'este nutricionista'}? Se le sumará 1 mes.`)) return;
-        return cloud.adminConfirmBizum(d.user, d.id ? num(d.id) : null).then((until) => { closeSheet(); adminRows = null; render(); toast(`Pagado hasta el ${fmtDate(String(until).slice(0, 10), true)} ✓`); }).catch((err) => toast(err.message));
+        if (!confirm(`¿Confirmas que has recibido el ${d.method === 'paypal' ? 'pago por PayPal' : 'Bizum'} de ${r?.full_name || r?.email || 'este nutricionista'}? Se le sumará 1 mes.`)) return;
+        return cloud.adminConfirmPayment(d.user, d.id ? num(d.id) : null, d.method || 'bizum').then((until) => { closeSheet(); adminRows = null; render(); toast(`Pagado hasta el ${fmtDate(String(until).slice(0, 10), true)} ✓`); }).catch((err) => toast(err.message));
       }
       case 'bizum-no':
         if (!confirm('¿Marcar este aviso como no recibido?')) return;
-        return cloud.adminRejectBizum(num(d.id)).then(() => { adminRows = null; render(); }).catch((err) => toast(err.message));
+        return cloud.adminRejectPayment(num(d.id)).then(() => { adminRows = null; render(); }).catch((err) => toast(err.message));
       case 'recheck': return afterPayment();
       case 'logout': return logout();
       case 'exit-view': return exitViewing();

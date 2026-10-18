@@ -1,7 +1,7 @@
 # Poner NutriLab en marcha como app de pago
 
 Con esto, otros nutricionistas pueden registrarse en NutriLab, probarla **14 días gratis** y después pagar una
-**cuota mensual** con **PayPal** (suscripción automática; PayPal también acepta tarjeta) o con **Bizum** (mes a mes).
+**cuota mensual** con **PayPal** (también con tarjeta) o con **Bizum**.
 Cada uno guarda sus clientes, mediciones,
 fotos y dietas en su cuenta, separados del resto, y los tiene en todos sus dispositivos.
 
@@ -46,7 +46,17 @@ registrados, estado de cada suscripción, ingresos estimados al mes, y la opció
 **solo lectura** (por ejemplo, para darle soporte). Cada vez que entras en los datos de alguien tienes que escribir el
 motivo; queda registrado y esa persona lo ve en sus Ajustes. Desde la app nadie puede hacerse administrador.
 
-## 2. PayPal: la suscripción mensual
+## 2. PayPal
+
+Hay dos formas. Puedes empezar con la **sencilla** y pasar a la automática cuando quieras:
+
+- **Sencilla (PayPal.me, mes a mes):** pon tu usuario de PayPal.me en `config.js` → `paypalMe` (ya está `jcfx1`).
+  El nutricionista paga en `paypal.me/jcfx1` con el importe puesto, pulsa «Ya lo he pagado» y tú lo confirmas en el
+  panel, igual que un Bizum (paso 4). No necesitas nada más. Comprueba que <https://paypal.me/jcfx1> abre tu perfil.
+- **Automática (suscripción que se renueva sola):** sigue los pasos de abajo. Cuando pongas `paypalClientId`, la app
+  usa la suscripción en lugar de PayPal.me.
+
+### Suscripción automática
 
 1. Necesitas una **cuenta PayPal Business** (<https://www.paypal.com/es/business>), gratuita.
 2. Entra en <https://developer.paypal.com> con esa cuenta → **Apps & Credentials** → pestaña **Sandbox** →
@@ -78,22 +88,23 @@ En **Edge Functions → Secrets**, añade:
 | `PAYPAL_ENV` | `sandbox` (en el paso 8 lo cambiarás a `live`) |
 | `APP_URL` | `https://javifx004-cmd.github.io/nutrilab/` |
 
-## 4. Bizum (mes a mes)
+## 4. Pagos mes a mes (Bizum y PayPal.me)
 
-Bizum no permite cobros automáticos cada mes sin un TPV virtual del banco, así que funciona así:
+Bizum no permite cobros automáticos cada mes sin un TPV virtual del banco, así que funciona así (igual con PayPal.me):
 
 1. El nutricionista pulsa **Bizum**, ve tu número, el importe (49,99 €) y el concepto (`NutriLab` + su email),
    envía el Bizum desde su banco y pulsa **«Ya lo he enviado»** (si quiere, te avisa también por WhatsApp).
-2. Tú lo ves en **Ajustes → Panel de administración → Bizum por confirmar**. Comprueba en tu banco que ha llegado y
+2. Tú lo ves en **Ajustes → Panel de administración → Pagos por confirmar**. Comprueba en tu banco que ha llegado y
    pulsa **+1 mes**. Su acceso se alarga un mes desde hoy (o desde el final de lo que ya tuviera pagado).
-3. Si alguien te envía un Bizum sin avisar, abre su ficha en el panel → **«He recibido su Bizum: +1 mes»**.
+3. Si alguien te paga sin avisar, abre su ficha en el panel → **«He recibido su Bizum: +1 mes»** (o «su PayPal»).
 
 El importe de los avisos (49,99 €) está en `20261020000000_pagos.sql` (`4999` céntimos); si cambias el precio, cámbialo allí.
 
 ## 5. Datos en la app
 
-En [`config.js`](config.js) rellena: `paypalClientId` (Client ID), `paypalPlanId` (`P-…`), `bizumPhone` (tu número de
-Bizum) y `bizumName` (tu nombre como lo verán al enviar el Bizum). Si dejas vacío PayPal o Bizum, esa opción no aparece.
+En [`config.js`](config.js) rellena: `bizumPhone` (tu número de Bizum, ya está), `bizumName` (tu nombre como lo verán al
+enviar el Bizum), `paypalMe` (ya está) y, si usas la suscripción automática, `paypalClientId` y `paypalPlanId`.
+Si dejas vacía una forma de pago, no aparece.
 
 ## 6. Publicar la app
 
@@ -106,7 +117,7 @@ Sube los cambios de `config.js` y activa GitHub Pages en el repositorio `nutrila
 2. Ajustes → **PayPal o tarjeta** → entra con tu cuenta *personal* de pruebas (Developer → Sandbox → Accounts).
 3. Al volver, Ajustes debe mostrar **Suscripción activa**. En Supabase (**Table Editor → profiles**) verás `active`.
 4. **Cancelar suscripción**: mantiene el acceso hasta el final del mes pagado y después pasa a la pantalla de pago.
-5. Con otra cuenta: **Bizum → Ya lo he enviado**. En tu panel aparece en «Bizum por confirmar» → **+1 mes**.
+5. Con otra cuenta: **Bizum → Ya lo he enviado**. En tu panel aparece en «Pagos por confirmar» → **+1 mes**.
 
 ## 8. Pasar a cobros reales
 

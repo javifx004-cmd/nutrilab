@@ -1,15 +1,15 @@
--- NutriLab: pagos con PayPal (suscripción mensual automática) y Bizum (mes a mes, confirmado por el administrador).
+-- NutriLab: pagos con PayPal (suscripción mensual automática) y pagos mes a mes con Bizum o PayPal.me, confirmados por el administrador.
 
 alter table public.profiles add column if not exists paid_until timestamptz;            -- meses pagados con Bizum
 alter table public.profiles add column if not exists paypal_subscription_id text;
 -- Ninguna de las dos se puede cambiar desde la app (los usuarios solo pueden actualizar full_name).
 
--- ------------------------------------------------------------------ avisos de Bizum
--- El nutricionista avisa de que ha enviado el Bizum; el administrador lo confirma al verlo en su banco.
+-- ------------------------------------------------------------------ avisos de pago (Bizum o PayPal.me)
+-- El nutricionista avisa de que ha pagado; el administrador lo confirma al verlo en su banco o en PayPal.
 create table if not exists public.payment_requests (
   id bigint generated always as identity primary key,
   user_id uuid not null references auth.users (id) on delete cascade default auth.uid(),
-  method text not null default 'bizum' check (method = 'bizum'),
+  method text not null default 'bizum' check (method in ('bizum', 'paypal')),
   amount_cents integer not null default 4999,
   status text not null default 'pending' check (status in ('pending', 'confirmed', 'rejected')),
   created_at timestamptz not null default now(),
@@ -19,7 +19,7 @@ create table if not exists public.payment_requests (
 create unique index if not exists payment_requests_one_pending on public.payment_requests (user_id) where status = 'pending';
 alter table public.payment_requests enable row level security;
 create policy "ver mis avisos" on public.payment_requests for select using (user_id = auth.uid() or public.is_admin(auth.uid()));
-create policy "avisar de un bizum" on public.payment_requests for insert
+create policy "avisar de un pago" on public.payment_requests for insert
   with check (user_id = auth.uid() and status = 'pending' and amount_cents = 4999 and resolved_at is null);
 revoke update, delete on public.payment_requests from anon, authenticated;
 
@@ -55,20 +55,21 @@ language sql stable security definer set search_path = public as $$
 $$;
 
 -- ------------------------------------------------------------------ administración
--- Confirmar un Bizum recibido: suma los meses desde hoy o desde el final de lo ya pagado.
-create or replace function public.admin_confirm_payment(p_user uuid, p_request bigint default null, p_months integer default 1)
+-- Confirmar un pago recibido: suma los meses desde hoy o desde el final de lo ya pagado.
+create or replace function public.admin_confirm_payment(p_user uuid, p_request bigint default null, p_months integer default 1, p_method text default 'bizum')
 returns timestamptz
 language plpgsql security definer set search_path = public as $$
-declare v_until timestamptz; v_amount integer := 4999;
+declare v_until timestamptz; v_amount integer := 4999; v_method text := p_method;
 begin
   if not public.is_admin(auth.uid()) then raise exception 'Solo para administradores' using errcode = '42501'; end if;
   if p_months not between 1 and 12 then raise exception 'Número de meses no válido' using errcode = '22023'; end if;
+  if v_method not in ('bizum', 'paypal') then raise exception 'Forma de pago no válida' using errcode = '22023'; end if;
   if p_request is not null then
     update public.payment_requests set status = 'confirmed', resolved_at = now()
-      where id = p_request and user_id = p_user and status = 'pending' returning amount_cents into v_amount;
+      where id = p_request and user_id = p_user and status = 'pending' returning amount_cents, method into v_amount, v_method;
     if not found then raise exception 'Ese aviso ya estaba resuelto' using errcode = 'P0001'; end if;
   else
-    -- Bizum recibido sin aviso: cierra el aviso pendiente si lo hubiera
+    -- Pago recibido sin aviso: cierra el aviso pendiente si lo hubiera
     update public.payment_requests set status = 'confirmed', resolved_at = now() where user_id = p_user and status = 'pending';
   end if;
   select greatest(coalesce(paid_until, now()), now()) + make_interval(months => p_months) into v_until
@@ -76,7 +77,7 @@ begin
   if v_until is null then raise exception 'No existe la cuenta' using errcode = 'P0002'; end if;
   update public.profiles set paid_until = v_until where id = p_user;
   insert into public.payments (user_id, method, amount_cents, months, paid_until, request_id, confirmed_by)
-    values (p_user, 'bizum', coalesce(v_amount, 4999) * p_months, p_months, v_until, p_request, auth.uid());
+    values (p_user, v_method, coalesce(v_amount, 4999) * p_months, p_months, v_until, p_request, auth.uid());
   return v_until;
 end $$;
 
@@ -86,7 +87,7 @@ begin
   if not public.is_admin(auth.uid()) then raise exception 'Solo para administradores' using errcode = '42501'; end if;
   update public.payment_requests set status = 'rejected', resolved_at = now() where id = p_request and status = 'pending';
 end $$;
-revoke execute on function public.admin_confirm_payment(uuid, bigint, integer) from anon;
+revoke execute on function public.admin_confirm_payment(uuid, bigint, integer, text) from anon;
 revoke execute on function public.admin_reject_payment(bigint) from anon;
 
 -- El panel muestra también hasta cuándo ha pagado con Bizum.

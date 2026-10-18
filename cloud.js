@@ -128,27 +128,27 @@ export async function accessLog(uid) {
   return error ? [] : data || [];
 }
 
-// ---------------------------------------------------------------- Bizum (se confirma a mano)
-// Aviso del nutricionista: «ya he enviado el Bizum». Solo puede tener uno pendiente.
-export async function pendingBizum(uid) {
-  const { data } = await sb.from('payment_requests').select('id, created_at').eq('user_id', uid).eq('status', 'pending').order('created_at', { ascending: false }).limit(1);
+// ---------------------------------------------------------------- pagos mes a mes con Bizum o PayPal.me (se confirman a mano)
+// Aviso del nutricionista: «ya he pagado». Solo puede tener uno pendiente.
+export async function pendingPayment(uid) {
+  const { data } = await sb.from('payment_requests').select('id, method, created_at').eq('user_id', uid).eq('status', 'pending').order('created_at', { ascending: false }).limit(1);
   return data?.[0] || null;
 }
-export async function notifyBizum(uid) {
-  const { error } = await sb.from('payment_requests').insert({ user_id: uid, method: 'bizum' });
-  if (error) throw new Error(error.code === '23505' ? 'Ya nos avisaste de un Bizum. Lo confirmaremos en breve.' : 'No se pudo enviar el aviso. Inténtalo de nuevo.');
+export async function notifyPayment(uid, method) {
+  const { error } = await sb.from('payment_requests').insert({ user_id: uid, method });
+  if (error) throw new Error(error.code === '23505' ? 'Ya nos avisaste de un pago. Lo confirmaremos en breve.' : 'No se pudo enviar el aviso. Inténtalo de nuevo.');
 }
-export async function adminPendingBizum() {
-  const { data, error } = await sb.from('payment_requests').select('id, user_id, amount_cents, created_at').eq('status', 'pending').order('created_at');
+export async function adminPendingPayments() {
+  const { data, error } = await sb.from('payment_requests').select('id, user_id, method, amount_cents, created_at').eq('status', 'pending').order('created_at');
   return error ? [] : data || [];
 }
 // Suma 1 mes al nutricionista (y marca su aviso como confirmado si lo había). Devuelve la nueva fecha.
-export async function adminConfirmBizum(user, requestId = null) {
-  const { data, error } = await sb.rpc('admin_confirm_payment', { p_user: user, p_request: requestId, p_months: 1 });
+export async function adminConfirmPayment(user, requestId = null, method = 'bizum') {
+  const { data, error } = await sb.rpc('admin_confirm_payment', { p_user: user, p_request: requestId, p_months: 1, p_method: method });
   if (error) throw new Error(error.message || 'No se pudo confirmar');
   return data;
 }
-export async function adminRejectBizum(requestId) {
+export async function adminRejectPayment(requestId) {
   const { error } = await sb.rpc('admin_reject_payment', { p_request: requestId });
   if (error) throw new Error(error.message || 'No se pudo actualizar');
 }
