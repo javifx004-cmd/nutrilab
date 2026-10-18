@@ -84,11 +84,13 @@
   const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
   const addDays = (iso, n) => { const d = new Date(iso + 'T12:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
   const daysBetween = (a, b) => Math.round((new Date(b + 'T12:00') - new Date(a + 'T12:00')) / 864e5);
-  const fmt = (v, d = 1) => new Intl.NumberFormat('es-ES', { maximumFractionDigits: d }).format(v);
+  const NF = new Map();
+  const fmt = (v, d = 1) => { let f = NF.get(d); if (!f) NF.set(d, (f = new Intl.NumberFormat('es-ES', { maximumFractionDigits: d }))); return f.format(v); };
+  const DF = { long: new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }), short: new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short' }), year: new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', year: '2-digit' }) };
   const fmtDate = (s, long = false) => {
     if (!s) return '—';
     const d = new Date(s + 'T12:00');
-    return d.toLocaleDateString('es-ES', long ? { weekday: 'long', day: 'numeric', month: 'long' } : d.getFullYear() === new Date().getFullYear() ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: '2-digit' });
+    return (long ? DF.long : d.getFullYear() === new Date().getFullYear() ? DF.short : DF.year).format(d);
   };
   const relDay = (s) => {
     const n = daysBetween(today(), s);
@@ -317,7 +319,7 @@
     const tabOf = { home: '#/', clients: '#/clientes', client: '#/clientes', plan: '#/clientes', foods: '#/alimentos', settings: '#/ajustes', admin: '#/ajustes' };
     $$('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.nav === tabOf[r.view]));
     let title = '', sub = '', back = null, fab = null, html = '';
-    if (r.view === 'home') { title = 'Inicio'; sub = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }); html = renderHome(); fab = ['Cliente', () => clientSheet()]; }
+    if (r.view === 'home') { title = 'Inicio'; sub = DF.long.format(new Date()); html = renderHome(); }
     if (r.view === 'clients') { title = 'Clientes'; sub = `${S.clients.filter((c) => (c.status || 'activo') === 'activo').length} activos`; html = renderClients(); fab = ['Cliente', () => clientSheet()]; }
     if (r.view === 'client') { const c = clientById(r.id); title = 'Cliente'; sub = c.name; back = '#/clientes'; html = renderClient(c, r.sub); }
     if (r.view === 'plan') { const p = S.plans.find((x) => x.id === r.id); const c = clientById(p.clientId); title = p.name; sub = c ? c.name : ''; back = c ? `#/c/${c.id}/dietas` : '#/clientes'; html = renderPlan(p); }
@@ -332,7 +334,7 @@
     let f = $('.fab');
     if (fab) {
       if (!f) { f = document.createElement('button'); f.className = 'fab'; document.body.appendChild(f); }
-      f.innerHTML = ICON.plus + fab[0]; f.onclick = fab[1];
+      f.innerHTML = ICON.plus + `<span>${fab[0]}</span>`; f.setAttribute('aria-label', 'Añadir ' + fab[0].toLowerCase()); f.onclick = fab[1]; f.classList.remove('away');
     } else f?.remove();
     afterRender(r);
   }
@@ -353,7 +355,7 @@
         <div class="hello">${hello}${firstName ? ', ' + esc(firstName) : ''} 👋${thisWeek.length ? ` Tienes <b>${thisWeek.length}</b> revisi${thisWeek.length === 1 ? 'ón' : 'ones'} esta semana.` : S.clients.length ? ' Todo al día.' : ''}</div>
         ${S.clients.length ? `<div class="glass">
           <div><div class="v num">${active.length}</div><div class="l">Clientes activos</div></div>
-          <div><div class="v num">${thisWeek.length}</div><div class="l">Revisiones 7 días</div></div>
+          <div><div class="v num">${thisWeek.length}</div><div class="l">Citas esta semana</div></div>
           <div><div class="v num">${S.plans.length}</div><div class="l">Dietas creadas</div></div></div>` : ''}
         <span class="leaf">${ICON.leaf}</span>
       </section>`;
@@ -365,7 +367,12 @@
         <div class="row" style="justify-content:center"><button class="btn primary" data-act="new-client">${ICON.plus}Añadir cliente</button><button class="btn" data-act="demo">Ver ejemplo</button></div></div>`;
 
     const recent = S.measures.filter((m) => clientById(m.clientId)).sort((a, b) => b.date.localeCompare(a.date) || (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 5);
-    return hero + trialNote + `
+    const quick = `<div class="quick">
+        <button data-act="new-client"><i>${ICON.plus}</i>Cliente</button>
+        <button data-act="qa-ai"><i class="ai">${ICON.ai}</i>Dieta IA</button>
+        <button data-act="qa-measure"><i>${ICON.chart}</i>Medición</button>
+        <button data-act="qa-review"><i>${ICON.calendar}</i>Cita</button></div>`;
+    return hero + trialNote + quick + `<div class="home-grid">
       <div class="card"><div class="card-head"><h3>Próximas citas</h3>${reviews.some((c) => c.nextReview >= today()) ? `<button class="btn sm ghost" data-act="cal-all">${ICON.calendar}Al calendario</button>` : `<button class="btn sm ghost" data-nav="#/clientes">Ver clientes</button>`}</div>
         ${reviews.length ? reviews.slice(0, 6).map((c) => `
           <div class="list-item" data-nav="#/c/${c.id}">${avatar(c)}
@@ -380,7 +387,24 @@
             <div class="body"><div class="t">${esc(c.name)}</div><div class="s">${esc(fmtDate(m.date))}${has(m.waist) ? ' · cintura ' + fmt(num(m.waist)) + ' cm' : ''}</div></div>
             <div class="end"><b class="num">${has(m.weight) ? fmt(num(m.weight)) + ' kg' : '—'}</b>${d != null ? `<div class="small ${trendCls(c, d)}">${d > 0 ? '+' : ''}${fmt(d)} kg</div>` : ''}</div></div>`;
         }).join('') : '<p class="small muted" style="margin:0">Aún no hay mediciones.</p>'}
-      </div>`;
+      </div></div>`;
+  }
+  // Elige un cliente para una acción rápida del inicio
+  function pickClient(title, onPick) {
+    const list = S.clients.filter((c) => (c.status || 'activo') === 'activo').sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    if (!list.length) { toast('Añade primero un cliente'); return clientSheet(); }
+    sheet(title, `${list.length > 6 ? `<div class="search-wrap">${ICON.search}<input class="search" id="pcSearch" type="search" placeholder="Buscar cliente…" autocomplete="off"></div>` : ''}<div id="pcList"></div>`);
+    const draw = (q = '') => { $('#pcList').innerHTML = list.filter((c) => !q || plain(c.name).includes(plain(q))).map((c) => `<div class="list-item" data-pc="${c.id}">${avatar(c)}<div class="body"><div class="t">${esc(c.name)}</div><div class="s">${esc((GOALS[c.goal] || GOALS.mantener).l)}${c.nextReview ? ' · cita ' + esc(relDay(c.nextReview)) : ''}</div></div></div>`).join('') || '<p class="small muted">Sin resultados.</p>'; };
+    draw();
+    $('#pcSearch')?.addEventListener('input', (e) => draw(e.target.value));
+    $('#pcList').onclick = (e) => { const el = e.target.closest('[data-pc]'); if (el) { closeSheet(); onPick(clientById(el.dataset.pc)); } };
+  }
+  // Minigráfica del peso (últimas mediciones)
+  function spark(c, s) {
+    const pts = s.slice(-10); if (pts.length < 2) return '';
+    const vs = pts.map((x) => x.v), mn = Math.min(...vs), r = Math.max(...vs) - mn || 1;
+    const d = pts.map((x, i) => `${i ? 'L' : 'M'}${(2 + (i * 60) / (pts.length - 1)).toFixed(1)},${(21 - ((x.v - mn) / r) * 18).toFixed(1)}`).join('');
+    return `<svg class="spark ${trendCls(c, vs[vs.length - 1] - vs[0])}" viewBox="0 0 64 24" width="64" height="24" aria-hidden="true"><path d="${d}"/></svg>`;
   }
   // Verde si el cambio va en la dirección del objetivo del cliente.
   const trendCls = (c, d) => { if (!d) return 'muted'; const g = c.goal || 'mantener'; const good = g === 'ganar' ? d > 0 : g === 'mantener' ? Math.abs(d) < 0.5 : d < 0; return good ? 'pos' : 'neg'; };
@@ -391,7 +415,7 @@
     return `
       <div class="search-wrap">${ICON.search}<input class="search" id="clientSearch" type="search" placeholder="Buscar cliente…" value="${esc(ui.clientQuery)}" autocomplete="off"></div>
       <div class="chips">${Object.entries(STATUS_PLURAL).map(([k, l]) => `<button class="chip ${ui.clientFilter === k ? 'on' : ''}" data-cfilter="${k}">${l}<span class="n">${counts[k]}</span></button>`).join('')}<button class="chip ${ui.clientFilter === 'all' ? 'on' : ''}" data-cfilter="all">Todos<span class="n">${S.clients.length}</span></button></div>
-      <div id="clientList">${clientList()}</div>`;
+      <div id="clientList" class="client-grid">${clientList()}</div>`;
   }
   function clientList() {
     const q = ui.clientQuery.toLowerCase().trim();
@@ -405,7 +429,7 @@
       return `<div class="client-card" data-nav="#/c/${c.id}">${avatar(c)}
         <div class="body"><div class="name">${esc(c.name)}</div>
           <div class="meta"><span class="pill ${g.cls}">${g.l}</span>${ageOf(c.birth) ? `<span>${ageOf(c.birth)} años</span>` : ''}${c.nextReview ? `<span>Revisión ${esc(relDay(c.nextReview))}</span>` : ''}</div></div>
-        <div class="end" style="text-align:right">${s.length ? `<b class="num">${fmt(s[s.length - 1].v)} kg</b>` : ''}${d != null ? `<div class="small num ${trendCls(c, d)}">${d > 0 ? '+' : ''}${fmt(d)} kg</div>` : ''}</div></div>`;
+        ${spark(c, s)}<div class="end" style="text-align:right">${s.length ? `<b class="num">${fmt(s[s.length - 1].v)} kg</b>` : ''}${d != null ? `<div class="small num ${trendCls(c, d)}">${d > 0 ? '+' : ''}${fmt(d)} kg</div>` : ''}</div></div>`;
     }).join('');
   }
 
@@ -458,7 +482,7 @@
     const toGo = goalW && now ? now - goalW : null;
     const progressPct = goalW && start && now && start !== goalW ? Math.max(0, Math.min(100, ((start - now) / (start - goalW)) * 100)) : null;
     const active = plansOf(c.id).find((p) => p.active) || plansOf(c.id)[0];
-    return `
+    return `<div class="sum-grid">
       ${t.kcal ? `<div class="card">
         <div class="card-head"><h3>Objetivo diario</h3>${t.custom ? '<span class="pill mute">manual</span>' : '<span class="pill green">calculado</span>'}</div>
         ${macroRing(t)}
@@ -482,7 +506,7 @@
         <div class="stat" ${active ? `data-nav="#/d/${active.id}" style="cursor:pointer"` : ''}><div class="l">Dieta ${active?.active ? 'activa' : 'más reciente'}</div><div class="v" style="font-size:15px">${active ? esc(active.name) : '—'}</div><div class="s">${active ? fmt(planAvg(active).kcal, 0) + ' kcal/día' : 'sin dietas'}</div></div>
       </div>
       ${c.allergies ? `<div class="note warn"><b>Alergias / intolerancias:</b> ${esc(c.allergies)}</div>` : ''}
-      ${CLOUD && acct && !viewing ? `<div class="card" id="portalCard" data-client="${esc(c.id)}"><div class="card-head"><h3>Acceso del cliente</h3></div><p class="small muted" style="margin:0">Cargando…</p></div>` : ''}`;
+      ${CLOUD && acct && !viewing ? `<div class="card" id="portalCard" data-client="${esc(c.id)}"><div class="card-head"><h3>Acceso del cliente</h3></div><p class="small muted" style="margin:0">Cargando…</p></div>` : ''}</div>`;
   }
 
   // ---------------------------------------------------------------- enlace del cliente (lado del nutricionista)
@@ -802,7 +826,7 @@
         ${cell('p', 'Proteína')}${cell('c', 'Hidratos')}${cell('f', 'Grasa')}
       </div></div>
       ${p.notes ? `<div class="note">${esc(p.notes)}</div>` : ''}
-      ${d.meals.map((m, mi) => {
+      <div class="meals">${d.meals.map((m, mi) => {
         const mm = mealMacros(m);
         return `<section class="meal">
           <div class="meal-head"><div class="name">${esc(m.name)}${m.time ? ` <span class="t">· ${esc(m.time)}</span>` : ''}</div><span class="k num">${fmt(mm.kcal, 0)} kcal</span>
@@ -813,7 +837,7 @@
           ${m.recipe ? `<div class="recipe">${esc(m.recipe)}</div>` : ''}
           <div class="meal-foot"><button class="btn sm ghost" data-act="add-food" data-meal="${mi}">${ICON.plus}Añadir alimento</button></div>
         </section>`;
-      }).join('')}
+      }).join('')}</div>
       <button class="btn block" data-act="add-meal" data-id="${p.id}">${ICON.plus}Añadir comida</button>`;
   }
 
@@ -1869,6 +1893,9 @@
     const p = d.act && ['print-plan', 'share-plan', 'plan-menu', 'add-day', 'add-meal'].includes(d.act) ? S.plans.find((x) => x.id === d.id) : null;
     switch (d.act) {
       case 'new-client': return clientSheet();
+      case 'qa-ai': return pickClient('Dieta con IA para…', (c) => aiPlanSheet(c.id));
+      case 'qa-measure': return pickClient('Nueva medición de…', (c) => measureSheet(c.id));
+      case 'qa-review': return pickClient('Cita con…', (c) => reviewSheet(c));
       case 'edit-client': return clientSheet(d.id);
       case 'del-client': {
         const c = clientById(d.id);
@@ -1921,7 +1948,13 @@
 
   // ================================================================ arranque
   const top = $('header.top');
-  window.addEventListener('scroll', () => top.classList.toggle('scrolled', window.scrollY > 4), { passive: true });
+  let lastY = 0;
+  window.addEventListener('scroll', () => {
+    const y = window.scrollY;
+    top.classList.toggle('scrolled', y > 4);
+    // El botón flotante se aparta al bajar (para no tapar nada) y vuelve al subir
+    if (Math.abs(y - lastY) > 6) { $('.fab')?.classList.toggle('away', y > lastY && y > 80); lastY = y; }
+  }, { passive: true });
   if (CLOUD) bootCloud(); else { render(); syncBadge(); syncNow(); }
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncNow(); });
   window.addEventListener('online', () => syncNow());
